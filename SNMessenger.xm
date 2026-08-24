@@ -180,7 +180,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
 
 - (void)viewWillAppear:(BOOL)arg1 {
     // v458.0.0 (old UI)
-    if (!self.settingsItem && [[self childViewControllerForUserInterfaceStyle] isKindOfClass:%c(MSGSettingsViewController)]) {
+    if (!self.settingsItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGSettingsViewController)]) {
         UIButton *settingsButton = [[UIButton alloc] init];
         UIImage *settingsIcon = [MDSGeneratedImageViewCreate(@"CautionTriangle", 10096, {24, 24}) image];
         [settingsButton setImage:settingsIcon forState:UIControlStateNormal];
@@ -195,7 +195,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
         }
     }
 
-    if (showTheEyeButton && !self.eyeItem && [[self childViewControllerForUserInterfaceStyle] isKindOfClass:%c(MSGInboxViewController)]) {
+    if (showTheEyeButton && !self.eyeItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGInboxViewController)]) {
         UIButton *eyeButton = [[UIButton alloc] init];
         UIImage *eyeIcon = [MDSGeneratedImageViewCreate(disableReadReceipts ? @"EyeCross" : @"Eye", 10093, {24, 24}) image];
         [eyeButton setImage:eyeIcon forState:UIControlStateNormal];

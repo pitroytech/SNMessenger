@@ -1,4 +1,5 @@
 #import "Headers/MDSGeneratedImageView.h"
+#import "SNPrivateAPI.h"
 #import "SNVersionTraits.h"
 #import "Headers/MSGModelClasses.h"
 #import <CydiaSubstrate.h>
