@@ -704,7 +704,10 @@ static BOOL hideTabBar = NO;
 %hook MSGThreadListDataSource
 
 - (NSArray *)inboxRows {
-    NSMutableArray *currentRows = [%orig mutableCopy];
+    // Kept out of the message send: current Logos mis-expands %orig as a
+    // message receiver here and drops the rest of the expression.
+    NSArray *originalRows = %orig;
+    NSMutableArray *currentRows = [originalRows mutableCopy];
     if ([self isInitializationComplete] && noAds && [currentRows count] > 0) {
         MSGThreadListUnitsSate *unitsState = MSHookIvar<MSGThreadListUnitsSate *>(self, "_unitsState");
         NSMutableDictionary *units = [unitsState unitKeyToUnit];
