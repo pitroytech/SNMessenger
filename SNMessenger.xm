@@ -113,7 +113,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
     }
 
     // Fix color code in older versions
-    if (MessengerVersion() == 458) {
+    if (SNTraits().remapsMdsColorCodes) {
         switch (colorCode) {
             case 10093: {
                 colorCode = 10096;
@@ -308,7 +308,7 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
         }
 
         case 5 ... 6: {
-            switch (type - (MessengerVersion() <= 458.0)) {
+            switch (type - SNTraits().fieldTypeShift) {
                 case 5: [self setObjectValue:va_arg(args, id) forFieldIndex:index];
                 default: break;
             }
@@ -341,7 +341,7 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
         case 4: return @(get<float>(values[index]));
 
         case 5 ... 8: {
-            switch (type - (MessengerVersion() <= 458.0)) {
+            switch (type - SNTraits().fieldTypeShift) {
                 case 4: return [NSValue valueWithPointer:get<void *>(values[index])]; // Struct in v458.0.0
                 case 5: return get<id>(values[index]);
                 case 6: return [get<MSGModelWeakObjectContainer *>(values[index]) value];
@@ -750,7 +750,7 @@ static BOOL hideTabBar = NO;
         MSGStoryViewerOverflowMenuActionTypeSave *actionTypeSave = nil;
         MSGStoryOverlayProfileViewActionStandard *actionStandard = nil;
 
-        if (MessengerVersion() > 458.0) {
+        if (SNTraits().usesADTInfoInitialiser) {
             actionTypeSave = [actionTypeSaveClass newADTModelWithInfo:&actionTypeSaveInfo adtInfo:&actionTypeSaveADTInfo];
             actionStandard = [actionStandardClass newADTModelWithInfo:&actionStandardInfo adtInfo:&actionStandardADTInfo];
         } else {
@@ -783,7 +783,7 @@ static BOOL hideTabBar = NO;
         }}
     });
 
-    if (MessengerVersion() > 458.0) {
+    if (SNTraits().lightSpeedSymbolsInEngine) {
         SNHookFunctions({
             {"LightSpeedEngine", {
                 {"MSGModelDefineClass", (void *)MSGModelDefineClass, (void **)&_MSGModelDefineClass},

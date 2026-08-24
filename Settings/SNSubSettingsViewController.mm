@@ -74,7 +74,7 @@
     disableTypingIndicatorCell.subtitleKey = @"DISABLE_TYPING_INDICATOR_DESCRIPTION";
     disableTypingIndicatorCell.prefKey = @"disableTypingIndicator";
     disableTypingIndicatorCell.defaultValue = @(NO);
-    disableTypingIndicatorCell.disabled = (MessengerVersion() <= 458.0);
+    disableTypingIndicatorCell.disabled = !SNTraits().lightSpeedSymbolsInEngine;
 
     SNCellModel *hideTypingIndicatorCell = [[SNCellModel alloc] initWithType:OptionsList labelKey:@"HIDE_TYPING_INDICATOR"];
     hideTypingIndicatorCell.prefKey = @"hideTypingIndicator";

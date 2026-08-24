@@ -12,6 +12,7 @@
 #import "Headers/MSGNavigationCoordinator_LSNavigationCoordinatorProxy.h"
 #import "Headers/MSGTempMessageListItemModel.h"
 #import "Headers/MSGThreadListDataSource.h"
+#import "SNVersionTraits.h"
 #import "Utilities.h"
 #import "fishhook/fishhook.h"
 #import <map>
@@ -50,7 +51,7 @@ static NSString *(^ typeLookup)(const char *, NSUInteger) = ^NSString *(const ch
 
         CaseCEqual ("@") {
             if (type < 8) {
-                switch (type - !IS_IOS_OR_NEWER(iOS_15_1)) {
+                switch (type - SNTraits().fieldTypeShift) {
                     case 5: return @"Strong Object";
                     case 6: return @"Weak Object";
                 }

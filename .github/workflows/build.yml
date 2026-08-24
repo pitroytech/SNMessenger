@@ -1,0 +1,86 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: rootless
+            flags: ROOTLESS=1
+            artifact: snmessenger-rootless-deb
+          - name: rootful
+            flags: ""
+            artifact: snmessenger-rootful-deb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl fakeroot git perl unzip zip xz-utils
+
+      - name: Set up Theos
+        uses: Randomblock1/theos-action@v1
+
+      - name: Ensure an iPhoneOS 16+ SDK is present
+        run: |
+          set -eu
+          sdk="$(ls -d "$THEOS"/sdks/iPhoneOS1[6-9]*.sdk 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "$sdk" ]; then
+            echo "Fetching iPhoneOS16.5.sdk from theos/sdks"
+            mkdir -p "$THEOS/sdks"
+            curl -fsSL https://github.com/theos/sdks/archive/refs/heads/master.zip -o /tmp/sdks.zip
+            unzip -q /tmp/sdks.zip -d /tmp/sdks
+            cp -r /tmp/sdks/sdks-master/iPhoneOS16.5.sdk "$THEOS/sdks/"
+            sdk="$THEOS/sdks/iPhoneOS16.5.sdk"
+          fi
+          echo "Using $sdk"
+
+      - name: Ensure ldid is on PATH
+        run: |
+          set -eu
+          if command -v ldid >/dev/null 2>&1; then
+            echo "ldid already on PATH: $(command -v ldid)"
+            exit 0
+          fi
+          found="$(find "$THEOS" -type f -name 'ldid*' -perm -u+x 2>/dev/null | head -n 1 || true)"
+          if [ -n "$found" ]; then
+            sudo ln -sf "$found" /usr/local/bin/ldid
+          else
+            sudo curl -fsSL -o /usr/local/bin/ldid \
+              https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_linux_x86_64
+            sudo chmod +x /usr/local/bin/ldid
+          fi
+          command -v ldid
+
+      - name: Build package
+        run: make clean package FINALPACKAGE=1 ${{ matrix.flags }}
+
+      - name: Inspect produced package
+        run: |
+          set -eu
+          deb="$(ls packages/*.deb | head -n 1)"
+          echo "Package: $deb"
+          dpkg-deb -I "$deb"
+          echo "--- contents ---"
+          dpkg-deb -c "$deb"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: packages/*.deb
+          if-no-files-found: error

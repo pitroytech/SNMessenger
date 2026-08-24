@@ -1,4 +1,5 @@
 #import "Headers/MDSGeneratedImageView.h"
+#import "SNVersionTraits.h"
 #import "Headers/MSGModelClasses.h"
 #import <CydiaSubstrate.h>
 #import <UIKit/UIKit.h>
@@ -49,8 +50,7 @@ static inline MSImageRef getImageRef(NSString *framework) {
 }
 
 static inline CGFloat MessengerVersion() {
-    NSString *version = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    return [[version substringToIndex:5] floatValue];
+    return SNMessengerVersion();
 }
 
 static inline NSString *localizedStringForKey(NSString *key) {

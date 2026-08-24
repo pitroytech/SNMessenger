@@ -121,7 +121,7 @@
     SNCellModel *hidePeopleTabCell = [[SNCellModel alloc] initWithType:Switch labelKey:@"HIDE_PEOPLE_TAB"];
     hidePeopleTabCell.prefKey = @"hidePeopleTab";
     hidePeopleTabCell.isRestartRequired = YES;
-    hidePeopleTabCell.disabled = (MessengerVersion() > 458.0);
+    hidePeopleTabCell.disabled = SNTraits().lightSpeedSymbolsInEngine;
 
     SNCellModel *hideStoriesTabCell = [[SNCellModel alloc] initWithType:Switch labelKey:@"HIDE_STORIES_TAB"];
     hideStoriesTabCell.prefKey = @"hideStoriesTab";
