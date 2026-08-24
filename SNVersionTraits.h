@@ -53,7 +53,7 @@ static inline SNVersionTraits SNTraits(void) {
         BOOL isLegacy = (version > 0.0f && version <= 458.0f);
 
         traits = (SNVersionTraits){
-            .fieldTypeShift            = isLegacy ? 1 : 0,
+            .fieldTypeShift            = (NSUInteger)(isLegacy ? 1 : 0),
             .lightSpeedSymbolsInEngine = !isLegacy,
             .usesADTInfoInitialiser    = !isLegacy,
             .remapsMdsColorCodes       = (version == 458.0f),

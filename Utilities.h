@@ -3,7 +3,13 @@
 #import "Headers/MSGModelClasses.h"
 #import <CydiaSubstrate.h>
 #import <UIKit/UIKit.h>
-#import <RemoteLog.h> // For debugging
+#if __has_include(<RemoteLog.h>)
+    #import <RemoteLog.h> // For debugging
+#else
+    // RemoteLog is a private debugging header. Fall back to the system log so
+    // the repo builds on a plain Theos install.
+    #define RLog(...) NSLog(__VA_ARGS__)
+#endif
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <rootless.h>
