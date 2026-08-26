@@ -2,6 +2,7 @@
 #import "SNPrivateAPI.h"
 #import "SNVersionTraits.h"
 #import "Headers/MSGModelClasses.h"
+#import <Cephei/HBPreferences.h>
 #import <CydiaSubstrate.h>
 #import <UIKit/UIKit.h>
 #if __has_include(<RemoteLog.h>)
@@ -13,10 +14,12 @@
 #endif
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <notify.h>
 #import <rootless.h>
 #import <version.h>
 
 #define PREF_CHANGED_NOTIF "SNMessenger/prefChanged"
+#define SN_PREFERENCES_IDENTIFIER @"com.nguyenasang.snmessenger"
 
 // A trick to use "case/switch" with string
 #define SwitchCStr(s) for (const char *__s__ = (s) ; ; )
@@ -72,7 +75,40 @@ static inline NSString *getSettingsPlistPath() {
 }
 
 static inline NSMutableDictionary *getCurrentSettings() {
-    return [[NSMutableDictionary alloc] initWithContentsOfFile:getSettingsPlistPath()] ?: [@{} mutableCopy];
+    HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SN_PREFERENCES_IDENTIFIER];
+    NSDictionary *legacySettings = [NSDictionary dictionaryWithContentsOfFile:getSettingsPlistPath()] ?: @{};
+
+    if ([preferences objectForKey:@"didMigrateLegacyPreferences"] == nil) {
+        [legacySettings enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+            (void)stop;
+            if ([preferences objectForKey:key] == nil) {
+                [preferences setObject:value forKey:key];
+            }
+        }];
+        [preferences setObject:@YES forKey:@"didMigrateLegacyPreferences"];
+    }
+
+    NSMutableDictionary *result = [[preferences dictionaryRepresentation] mutableCopy];
+    [result removeObjectForKey:@"didMigrateLegacyPreferences"];
+    return result;
+}
+
+static inline void setCurrentPreferenceValue(id value, NSString *key) {
+    if (key.length == 0) return;
+
+    HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SN_PREFERENCES_IDENTIFIER];
+    [preferences setObject:value forKey:key];
+
+    // Keep the historical app-container plist in sync so downgrades do not
+    // silently lose changes made from the iOS Settings bundle.
+    NSMutableDictionary *legacySettings = [[NSMutableDictionary alloc] initWithContentsOfFile:getSettingsPlistPath()] ?: [@{} mutableCopy];
+    if (value != nil) {
+        legacySettings[key] = value;
+    } else {
+        [legacySettings removeObjectForKey:key];
+    }
+    [legacySettings writeToFile:getSettingsPlistPath() atomically:YES];
+    notify_post(PREF_CHANGED_NOTIF);
 }
 
 static inline NSMutableDictionary *compareDictionaries(NSDictionary *oldDict, NSDictionary *newDict) {

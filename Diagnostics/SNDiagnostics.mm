@@ -171,11 +171,13 @@ static NSString *SNBuildReportLocked(void) {
     NSDictionary *info = mainBundle.infoDictionary ?: @{};
     NSString *settingsPath = SNSettingsPath();
     NSDictionary *settings = [NSDictionary dictionaryWithContentsOfFile:settingsPath];
+    HBPreferences *sharedPreferences = [[HBPreferences alloc] initWithIdentifier:@"com.nguyenasang.snmessenger"];
+    NSDictionary *sharedSettings = [sharedPreferences dictionaryRepresentation] ?: @{};
     NSFileManager *fileManager = NSFileManager.defaultManager;
     NSMutableString *report = [NSMutableString string];
 
     [report appendString:@"SNMessenger diagnostics\n"];
-    [report appendString:@"probeVersion: 2.1.1\n"];
+    [report appendString:@"probeVersion: 2.2.0\n"];
     [report appendFormat:@"timestamp: %@\n", SNDateString([NSDate date])];
     [report appendFormat:@"lastReason: %@\n", gSNLastReason ?: @"startup"];
     [report appendFormat:@"process: %@ pid=%d\n", NSProcessInfo.processInfo.processName, getpid()];
@@ -190,6 +192,7 @@ static NSString *SNBuildReportLocked(void) {
         [fileManager isReadableFileAtPath:settingsPath],
         (unsigned long)settings.count];
     [report appendFormat:@"settingsKeys: %@\n", [[settings.allKeys sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@", "] ?: @""];
+    [report appendFormat:@"sharedSettingsKeys: %@\n", [[sharedSettings.allKeys sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@", "] ?: @""];
     [report appendFormat:@"reportPath: %@\n", SNReportPath()];
     [report appendString:@"sharedTransport: HBPreferences + app-container file fallback\n"];
     [report appendString:@"symbolFrameworksExpected: LightSpeedCore, LightSpeedEngine\n"];

@@ -5,7 +5,6 @@
 - (instancetype)initWithData:(SNCellModel *)cellData reuseIdentifier:(NSString *)reuseIdentifier {
     if (self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuseIdentifier]) {
         _cellData = cellData;
-        _plistPath = getSettingsPlistPath();
 
         self.textLabel.adjustsFontSizeToFitWidth = YES;
         self.textLabel.text = localizedStringForKey(cellData.labelKey);
@@ -114,15 +113,11 @@
 }
 
 - (void)setPreferenceValue:(id)value {
-    NSMutableDictionary *settings = [[NSMutableDictionary alloc] initWithContentsOfFile:_plistPath] ?: [@{} mutableCopy];
-    [settings setObject:value forKey:_cellData.prefKey];
-    [settings writeToFile:_plistPath atomically:YES];
-    notify_post(PREF_CHANGED_NOTIF);
+    setCurrentPreferenceValue(value, _cellData.prefKey);
 }
 
 - (id)readPreferenceValueForKey:(NSString *)prefKey {
-    NSDictionary *settings = [[NSDictionary alloc] initWithContentsOfFile:_plistPath] ?: [@{} mutableCopy];
-    return settings[prefKey];
+    return getCurrentSettings()[prefKey];
 }
 
 @end

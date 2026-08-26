@@ -26,16 +26,24 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("void SNDiagnosticsStart(void)", header)
         self.assertIn("SNMessengerDiagnostics.txt", implementation)
         self.assertIn("HBPreferences", implementation)
+        self.assertIn("sharedSettingsKeys", implementation)
         self.assertNotIn("%hook NSObject", tweak)
         self.assertNotRegex(tweak + implementation, r"MSHookFunction\s*\([^\n]*objc_msgSend")
 
-    def test_messenger_575_settings_route_gets_a_direct_button(self):
+    def test_messenger_575_uses_ios_settings_instead_of_custom_navigation(self):
         tweak = read("SNMessenger.xm")
-        self.assertIn("MSGPrimarySettingsViewController", tweak)
-        self.assertIn("SNInstallSettingsButtonIfNeeded(self)", tweak)
-        self.assertIn("snmessenger_openTweakSettings:", tweak)
-        self.assertIn("rightBarButtonItems", tweak)
-        self.assertIn('accessibilityLabel = @"SNMessenger Settings"', tweak)
+        utilities = read("Utilities.h")
+        table_cell = read("Settings/SNTableViewCell.mm")
+
+        self.assertNotIn("SNInstallSettingsButtonIfNeeded", tweak)
+        self.assertNotIn("snmessenger_openTweakSettings:", tweak)
+        self.assertIn("SN_PREFERENCES_IDENTIFIER", utilities)
+        self.assertIn("HBPreferences", utilities)
+        self.assertIn("dictionaryRepresentation", utilities)
+        self.assertIn("didMigrateLegacyPreferences", utilities)
+        self.assertNotIn("[result addEntriesFromDictionary", utilities)
+        self.assertIn("setCurrentPreferenceValue", table_cell)
+        self.assertNotIn("writeToFile:_plistPath", table_cell)
 
     def test_hook_matrix_and_candidate_scan_are_bounded(self):
         implementation = read("Diagnostics/SNDiagnostics.mm")
@@ -62,7 +70,21 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         loader = plistlib.loads((ROOT / "layout/Library/PreferenceLoader/Preferences/SNMessengerPrefs.plist").read_bytes())
         actions = {item.get("action") for item in root.get("items", [])}
-        self.assertTrue({"refreshReport", "copyReport", "shareReport", "clearReport"}.issubset(actions))
+        self.assertTrue({"refreshReport", "copyReport", "shareReport", "clearReport", "resetSettings"}.issubset(actions))
+        preference_items = [item for item in root.get("items", []) if item.get("key")]
+        preference_keys = {item["key"] for item in preference_items}
+        expected_keys = {
+            "noAds", "showTheEyeButton", "alwaysSendHdPhotos", "callConfirmation",
+            "keyboardStateAfterEnterChat", "disableTypingIndicator", "hideTypingIndicator",
+            "disableLongPressToChangeTheme", "disableReadReceipts", "hideNotifBadgesInChat",
+            "canSaveFriendsStories", "disableStoriesPreview", "disableStorySeenReceipts",
+            "extendStoryVideoUploadLength", "neverReplayStoryAfterReacting",
+            "hideMetaAIFloatingButton", "hideNotesRow", "hideStoriesTab",
+            "hideSearchBar", "hideSuggestionsInSearch",
+        }
+        self.assertTrue(expected_keys.issubset(preference_keys))
+        self.assertTrue(all(item.get("defaults") == "com.nguyenasang.snmessenger" for item in preference_items))
+        self.assertTrue(all(item.get("PostNotification") == "SNMessenger/prefChanged" for item in preference_items))
         value_getters = {item.get("get") for item in root.get("items", []) if item.get("get")}
         self.assertIn("statusValue:", value_getters)
         self.assertEqual("PSLinkCell", loader["entry"]["cell"])
@@ -77,6 +99,8 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("UIActivityViewController", controller)
         self.assertIn("UIPasteboard", controller)
         self.assertIn("statusValue:(PSSpecifier *)specifier", controller)
+        self.assertIn("setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier", controller)
+        self.assertIn("resetSettings", controller)
 
         english = read("SNMessengerPrefs/Resources/en.lproj/Root.strings")
         vietnamese = read("SNMessengerPrefs/Resources/vi.lproj/Root.strings")
@@ -89,7 +113,7 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         version = re.search(r"^Version:\s*(\S+)", control, re.MULTILINE).group(1)
         package_version = re.search(r"^PACKAGE_VERSION\s*=\s*(\S+)", makefile, re.MULTILINE).group(1)
-        self.assertEqual("2.1.1", version)
+        self.assertEqual("2.2.0", version)
         self.assertEqual(version, package_version)
         self.assertEqual(version, info["CFBundleShortVersionString"])
         self.assertIn("Package: com.nguyenasang.snmessenger", control)

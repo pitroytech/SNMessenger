@@ -142,37 +142,6 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
     return imageView;
 }
 
-static BOOL SNIsMessengerSettingsController(UIViewController *controller) {
-    NSString *className = NSStringFromClass(controller.class);
-    return [className isEqualToString:@"MSGSettingsViewController"]
-        || [className isEqualToString:@"MSGPrimarySettingsViewController"]
-        || [className hasSuffix:@".MSGSettingsViewController"]
-        || [className hasSuffix:@".MSGPrimarySettingsViewController"];
-}
-
-static void SNInstallSettingsButtonIfNeeded(UIViewController *controller) {
-    if (!SNIsMessengerSettingsController(controller)) return;
-
-    UIViewController *host = controller.navigationController.topViewController ?: controller;
-    SEL action = @selector(snmessenger_openTweakSettings:);
-    NSArray<UIBarButtonItem *> *currentItems = host.navigationItem.rightBarButtonItems ?: @[];
-    for (UIBarButtonItem *item in currentItems) {
-        if (item.target == host && item.action == action) return;
-    }
-
-    UIBarButtonItem *settingsButton = [[UIBarButtonItem alloc]
-        initWithTitle:@"SN"
-        style:UIBarButtonItemStylePlain
-        target:host
-        action:action];
-    settingsButton.accessibilityLabel = @"SNMessenger Settings";
-
-    NSMutableArray<UIBarButtonItem *> *items = [currentItems mutableCopy];
-    [items addObject:settingsButton];
-    host.navigationItem.rightBarButtonItems = items;
-    SNDiagnosticsRecordSettingsEntry(@"installed direct settings button", host, (NSInteger)items.count);
-}
-
 #pragma mark - Settings page | Quick toggle to disable/enable read receipts
 
 %hook MSGCommunityListViewController
@@ -255,9 +224,7 @@ static void SNInstallSettingsButtonIfNeeded(UIViewController *controller) {
     UIImage *eyeIcon = [MDSGeneratedImageViewCreate(!disableReadReceipts ? @"EyeCross" : @"Eye", 10093, {24, 24}) image];
     [eyeButton setImage:eyeIcon forState:UIControlStateNormal];
 
-    [settings setObject:[NSNumber numberWithBool:!disableReadReceipts] forKey:@"disableReadReceipts"];
-    [settings writeToFile:getSettingsPlistPath() atomically:YES];
-    notify_post(PREF_CHANGED_NOTIF);
+    setCurrentPreferenceValue(@(!disableReadReceipts), @"disableReadReceipts");
 }
 
 %end
@@ -812,18 +779,6 @@ static BOOL hideTabBar = NO;
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     SNDiagnosticsRecordViewController(self);
-    SNInstallSettingsButtonIfNeeded(self);
-}
-
-%new(v@:@)
-- (void)snmessenger_openTweakSettings:(id)sender {
-    (void)sender;
-    UINavigationController *navigationController = self.navigationController;
-    if (navigationController == nil) return;
-
-    isDarkMode = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-    SNSettingsViewController *settingsController = [[SNSettingsViewController alloc] init];
-    [navigationController pushViewController:settingsController animated:YES];
 }
 
 %end

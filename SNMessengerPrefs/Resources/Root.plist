@@ -7,53 +7,215 @@
     <key>items</key>
     <array>
         <dict>
-            <key>cell</key>
-            <string>PSGroupCell</string>
-            <key>label</key>
-            <string>SNMessenger Diagnostics</string>
-            <key>footerText</key>
-            <string>Open Messenger and visit Inbox, Profile and Settings before refreshing this report.</string>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>General</string>
+            <key>footerText</key><string>Changes apply to Messenger immediately when possible. Reopen Messenger after changing interface options.</string>
         </dict>
         <dict>
-            <key>cell</key>
-            <string>PSTitleValueCell</string>
-            <key>label</key>
-            <string>Last Report</string>
-            <key>get</key>
-            <string>statusValue:</string>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Remove ads</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>noAds</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
         </dict>
         <dict>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Refresh Report</string>
-            <key>action</key>
-            <string>refreshReport</string>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Show read-receipt button</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>showTheEyeButton</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Chat</string>
         </dict>
         <dict>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Copy Report</string>
-            <key>action</key>
-            <string>copyReport</string>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Always send HD photos</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>alwaysSendHdPhotos</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
         </dict>
         <dict>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Share Report File</string>
-            <key>action</key>
-            <string>shareReport</string>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Confirm audio/video calls</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>callConfirmation</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
         </dict>
         <dict>
-            <key>cell</key>
-            <string>PSButtonCell</string>
-            <key>label</key>
-            <string>Clear Report</string>
-            <key>action</key>
-            <string>clearReport</string>
+            <key>cell</key><string>PSLinkListCell</string>
+            <key>label</key><string>Keyboard after opening chat</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>keyboardStateAfterEnterChat</string>
+            <key>default</key><string>ADAPTIVE</string>
+            <key>validTitles</key>
+            <array><string>Adaptive</string><string>Always expanded</string><string>Always collapsed</string></array>
+            <key>validValues</key>
+            <array><string>ADAPTIVE</string><string>ALWAYS_EXPANDED</string><string>ALWAYS_COLLAPSED</string></array>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
         </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide my typing indicator</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>disableTypingIndicator</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSLinkListCell</string>
+            <key>label</key><string>Hide others' typing indicator</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideTypingIndicator</string>
+            <key>default</key><string>NOWHERE</string>
+            <key>validTitles</key>
+            <array><string>Nowhere</string><string>In chat only</string><string>In conversation list only</string><string>Everywhere</string></array>
+            <key>validValues</key>
+            <array><string>NOWHERE</string><string>IN_CHAT_ONLY</string><string>IN_THREAD_LIST_ONLY</string><string>BOTH</string></array>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Disable long press to change theme</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>disableLongPressToChangeTheme</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Disable read receipts</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>disableReadReceipts</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide notification badges in chat</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideNotifBadgesInChat</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Stories</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Allow saving friends' stories</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>canSaveFriendsStories</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Disable story previews</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>disableStoriesPreview</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Disable story seen receipts</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>disableStorySeenReceipts</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Extend story video upload length</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>extendStoryVideoUploadLength</string>
+            <key>default</key><true/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Do not replay story after reacting</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>neverReplayStoryAfterReacting</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Interface</string>
+            <key>footerText</key><string>Reopen Messenger after changing these options.</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide Meta AI floating button</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideMetaAIFloatingButton</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide notes row</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideNotesRow</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide stories tab</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideStoriesTab</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide search bar</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideSearchBar</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>Hide search suggestions</string>
+            <key>defaults</key><string>com.nguyenasang.snmessenger</string>
+            <key>key</key><string>hideSuggestionsInSearch</string>
+            <key>default</key><false/>
+            <key>PostNotification</key><string>SNMessenger/prefChanged</string>
+        </dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Diagnostics</string>
+            <key>footerText</key><string>Open Messenger and visit the affected screen before refreshing the report.</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSTitleValueCell</string>
+            <key>label</key><string>Last Report</string>
+            <key>get</key><string>statusValue:</string>
+        </dict>
+        <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Refresh Report</string><key>action</key><string>refreshReport</string></dict>
+        <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Copy Report</string><key>action</key><string>copyReport</string></dict>
+        <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Share Report File</string><key>action</key><string>shareReport</string></dict>
+        <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Clear Report</string><key>action</key><string>clearReport</string></dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Reset</string>
+        </dict>
+        <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Reset All Settings</string><key>action</key><string>resetSettings</string></dict>
     </array>
 </dict>
 </plist>

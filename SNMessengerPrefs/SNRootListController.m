@@ -8,6 +8,20 @@ static NSString * const SNDiagnosticsDomain = @"com.nguyenasang.snmessenger.diag
 static NSString * const SNDiagnosticsReportKey = @"latestReport";
 static NSString * const SNDiagnosticsUpdatedKey = @"lastUpdated";
 static CFStringRef const SNDiagnosticsRunNotification = CFSTR("com.nguyenasang.snmessenger/RunDiagnostics");
+static NSString * const SNSettingsDomain = @"com.nguyenasang.snmessenger";
+static CFStringRef const SNSettingsChangedNotification = CFSTR("SNMessenger/prefChanged");
+
+static NSArray<NSString *> *SNSettingKeys(void) {
+    return @[
+        @"noAds", @"showTheEyeButton", @"alwaysSendHdPhotos", @"callConfirmation",
+        @"keyboardStateAfterEnterChat", @"disableTypingIndicator", @"hideTypingIndicator",
+        @"disableLongPressToChangeTheme", @"disableReadReceipts", @"hideNotifBadgesInChat",
+        @"canSaveFriendsStories", @"disableStoriesPreview", @"disableStorySeenReceipts",
+        @"extendStoryVideoUploadLength", @"neverReplayStoryAfterReacting",
+        @"hideMetaAIFloatingButton", @"hideNotesRow", @"hideStoriesTab",
+        @"hideSearchBar", @"hideSuggestionsInSearch",
+    ];
+}
 
 @interface LSApplicationProxy : NSObject
 + (instancetype)applicationProxyForIdentifier:(NSString *)identifier;
@@ -25,6 +39,24 @@ static CFStringRef const SNDiagnosticsRunNotification = CFSTR("com.nguyenasang.s
 
 - (NSString *)localized:(NSString *)key {
     return [self.bundle localizedStringForKey:key value:key table:@"Root"];
+}
+
+- (id)readPreferenceValue:(PSSpecifier *)specifier {
+    NSString *key = [specifier propertyForKey:@"key"];
+    if (key.length == 0) return nil;
+
+    HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
+    id value = [preferences objectForKey:key];
+    return value ?: [specifier propertyForKey:@"default"];
+}
+
+- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
+    NSString *key = [specifier propertyForKey:@"key"];
+    if (key.length == 0) return;
+
+    HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
+    [preferences setObject:value forKey:key];
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), SNSettingsChangedNotification, NULL, NULL, YES);
 }
 
 - (NSString *)messengerReportPath {
@@ -134,6 +166,27 @@ static CFStringRef const SNDiagnosticsRunNotification = CFSTR("com.nguyenasang.s
     NSString *path = [self messengerReportPath];
     if (path.length > 0) [NSFileManager.defaultManager removeItemAtPath:path error:nil];
     [self reloadStatus];
+}
+
+- (void)resetSettings {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:[self localized:@"Reset All Settings"]
+        message:[self localized:@"Restore every SNMessenger option to its default value?"]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction
+        actionWithTitle:[self localized:@"Cancel"]
+        style:UIAlertActionStyleCancel
+        handler:nil]];
+    [alert addAction:[UIAlertAction
+        actionWithTitle:[self localized:@"Reset"]
+        style:UIAlertActionStyleDestructive
+        handler:^(__unused UIAlertAction *action) {
+            HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
+            for (NSString *key in SNSettingKeys()) [preferences removeObjectForKey:key];
+            CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), SNSettingsChangedNotification, NULL, NULL, YES);
+            [self reloadSpecifiers];
+        }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 @end
