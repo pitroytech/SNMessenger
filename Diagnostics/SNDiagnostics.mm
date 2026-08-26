@@ -175,7 +175,7 @@ static NSString *SNBuildReportLocked(void) {
     NSMutableString *report = [NSMutableString string];
 
     [report appendString:@"SNMessenger diagnostics\n"];
-    [report appendString:@"probeVersion: 2.1.0\n"];
+    [report appendString:@"probeVersion: 2.1.1\n"];
     [report appendFormat:@"timestamp: %@\n", SNDateString([NSDate date])];
     [report appendFormat:@"lastReason: %@\n", gSNLastReason ?: @"startup"];
     [report appendFormat:@"process: %@ pid=%d\n", NSProcessInfo.processInfo.processName, getpid()];

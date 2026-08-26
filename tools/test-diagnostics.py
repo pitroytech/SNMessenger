@@ -29,6 +29,14 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertNotIn("%hook NSObject", tweak)
         self.assertNotRegex(tweak + implementation, r"MSHookFunction\s*\([^\n]*objc_msgSend")
 
+    def test_messenger_575_settings_route_gets_a_direct_button(self):
+        tweak = read("SNMessenger.xm")
+        self.assertIn("MSGPrimarySettingsViewController", tweak)
+        self.assertIn("SNInstallSettingsButtonIfNeeded(self)", tweak)
+        self.assertIn("snmessenger_openTweakSettings:", tweak)
+        self.assertIn("rightBarButtonItems", tweak)
+        self.assertIn('accessibilityLabel = @"SNMessenger Settings"', tweak)
+
     def test_hook_matrix_and_candidate_scan_are_bounded(self):
         implementation = read("Diagnostics/SNDiagnostics.mm")
         for token in (
@@ -81,7 +89,7 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         version = re.search(r"^Version:\s*(\S+)", control, re.MULTILINE).group(1)
         package_version = re.search(r"^PACKAGE_VERSION\s*=\s*(\S+)", makefile, re.MULTILINE).group(1)
-        self.assertEqual("2.1.0", version)
+        self.assertEqual("2.1.1", version)
         self.assertEqual(version, package_version)
         self.assertEqual(version, info["CFBundleShortVersionString"])
         self.assertIn("Package: com.nguyenasang.snmessenger", control)

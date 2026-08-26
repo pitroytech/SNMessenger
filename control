@@ -1,7 +1,7 @@
 Package: com.nguyenasang.snmessenger
 Name: SNMessenger
 Depends: mobilesubstrate, preferenceloader, ws.hbang.common (>= 2.0), firmware (>= 12.4)
-Version: 2.1.0
+Version: 2.1.1
 Architecture: iphoneos-arm
 Description: SNMessenger with an on-device compatibility diagnostics probe.
 Maintainer: NguyenASang
