@@ -394,6 +394,7 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
 %hook LSMediaPickerViewController
 
 - (BOOL)collectionView:(id)arg1 shouldSelectItemAtIndexPath:(id)arg2 {
+    SNDiagnosticsRecordFeatureHit(@"alwaysSendHdPhotos", self, [NSString stringWithFormat:@"enabled=%d", alwaysSendHdPhotos]);
     UIButton *hdToggleButton = MSHookIvar<UIButton *>(self, "_hdToggleButton");
     if (alwaysSendHdPhotos && [hdToggleButton state] == 0) {
         [self _didTapHDToggle:hdToggleButton];
@@ -426,6 +427,7 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
 
 id (* _LSRTCValidateCallIntentForKey)(NSString *, id, LSRTCCallIntentValidatorParams *);
 id LSRTCValidateCallIntentForKey(NSString *key, id context, LSRTCCallIntentValidatorParams *params) {
+    SNDiagnosticsRecordFeatureHit(@"callConfirmation", params, [NSString stringWithFormat:@"enabled=%d key=%@", callConfirmation, key ?: @"(nil)"]);
     MSGNavigationCoordinator_LSNavigationCoordinatorProxy *navigationCoordinator = [[params callIntent] navigationCoordinator];
     if (!callConfirmation || ![key isEqual:@"rtc_integrity_joiner_transparency"]) {
         return _LSRTCValidateCallIntentForKey(key, context, params);
@@ -442,12 +444,14 @@ id LSRTCValidateCallIntentForKey(NSString *key, id context, LSRTCCallIntentValid
 
 void (* _MCQSHIMTransportHybridThreadMarkThreadRead)();
 void MCQSHIMTransportHybridThreadMarkThreadRead() {
+    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", nil, [NSString stringWithFormat:@"enabled=%d transport=MCQSHIM", disableReadReceipts]);
     if (!disableReadReceipts) _MCQSHIMTransportHybridThreadMarkThreadRead();
 }
 
 // v458.0.0
 void *(* _MCINotificationCenterPostStrictNotification)(NSUInteger, id, NSString *, NSString *, NSMutableDictionary *);
 void *MCINotificationCenterPostStrictNotification(NSUInteger type, id notifCenter, NSString *event, NSString *taskID, NSMutableDictionary *content) {
+    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", notifCenter, [NSString stringWithFormat:@"enabled=%d transport=MCINotification", disableReadReceipts]);
     if (disableReadReceipts && [[content valueForKey:@"MCDNotificationTaskLabelsListKey"] isEqual:@[@"tam_thread_mark_read"]]) {
         return nil;
     }
@@ -460,6 +464,7 @@ void *MCINotificationCenterPostStrictNotification(NSUInteger type, id notifCente
 %hook MSGCQLResultSetList
 
 + (instancetype)newWithIdentifier:(NSString *)identifier context:(MSGStoryCardToolbox *)context resultSet:(id)arg3 resultSetCount:(NSInteger)arg4 options:(void *)arg5 actionHandlers:(void *)arg6 impressionTrackingContext:(id)arg7 {
+    SNDiagnosticsRecordFeatureHit(@"disableStoriesPreview", context, [NSString stringWithFormat:@"enabled=%d identifier=%@", disableStoriesPreview, identifier ?: @"(nil)"]);
     if ([identifier isEqual:@"stories"]) {
         [context setValueForField:@"isVideoAutoplayEnabled", !disableStoriesPreview];
     }
@@ -474,6 +479,7 @@ void *MCINotificationCenterPostStrictNotification(NSUInteger type, id notifCente
 %hook LSStoryBucketViewController
 
 - (void)startTimer {
+    SNDiagnosticsRecordFeatureHit(@"disableStorySeenReceipts", self, [NSString stringWithFormat:@"enabled=%d", disableStorySeenReceipts]);
     if (!disableStorySeenReceipts) return %orig;
 
     // Here we simply invoke [super startTimer] to do the timming job
@@ -487,6 +493,7 @@ void *MCINotificationCenterPostStrictNotification(NSUInteger type, id notifCente
 }
 
 - (void)replyBarWillPlayStoryFromBeginning:(id)arg1 {
+    SNDiagnosticsRecordFeatureHit(@"neverReplayStoryAfterReacting", self, [NSString stringWithFormat:@"enabled=%d", neverReplayStoryAfterReacting]);
     if (!neverReplayStoryAfterReacting) {
         %orig;
     }
@@ -498,6 +505,7 @@ void *MCINotificationCenterPostStrictNotification(NSUInteger type, id notifCente
 
 void (* _MCQTamClientTypingIndicatorStart)();
 void MCQTamClientTypingIndicatorStart() {
+    SNDiagnosticsRecordFeatureHit(@"disableTypingIndicator", nil, [NSString stringWithFormat:@"enabled=%d", disableTypingIndicator]);
     if (!disableTypingIndicator) return _MCQTamClientTypingIndicatorStart();
 }
 
@@ -505,6 +513,7 @@ void MCQTamClientTypingIndicatorStart() {
 
 id (* _MSGAVFoundationEstimateMaxVideoDurationInputCreate)(MSGMediaVideoPhasset *, NSUInteger, NSInteger, id, id);
 id MSGAVFoundationEstimateMaxVideoDurationInputCreate(MSGMediaVideoPhasset *videoAsset, NSUInteger maxVideoResolution, NSInteger maxFileSizeInBytes, id roundingFactorInSeconds, id completion) {
+    SNDiagnosticsRecordFeatureHit(@"extendStoryVideoUploadLength", videoAsset, [NSString stringWithFormat:@"enabled=%d", extendStoryVideoUploadLength]);
     if (extendStoryVideoUploadLength) MSHookIvar<CGFloat>([videoAsset asset], "_duration") = 1.0f; // max ≈ 13 mins
     return _MSGAVFoundationEstimateMaxVideoDurationInputCreate(videoAsset, maxVideoResolution, maxFileSizeInBytes, roundingFactorInSeconds, completion);
 }
@@ -533,12 +542,15 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 %hook MSGMetaAIFloatingActionButtonViewController
 
 - (void)viewDidLoad {
-    if (hideMetaAIFloatingButton) {
-        [[self view] setHidden:YES];
-        return;
-    }
-
     %orig;
+    [[self view] setHidden:hideMetaAIFloatingButton];
+    SNDiagnosticsRecordFeatureHit(@"hideMetaAIFloatingButton", self, [NSString stringWithFormat:@"enabled=%d appliedHidden=%d lifecycle=viewDidLoad", hideMetaAIFloatingButton, [[self view] isHidden]]);
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    %orig;
+    [[self view] setHidden:hideMetaAIFloatingButton];
+    SNDiagnosticsRecordFeatureHit(@"hideMetaAIFloatingButton", self, [NSString stringWithFormat:@"enabled=%d appliedHidden=%d lifecycle=viewWillAppear", hideMetaAIFloatingButton, [[self view] isHidden]]);
 }
 
 %end
@@ -548,6 +560,8 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 %hook MSGThreadListDataSource
 
 - (instancetype)initWithViewRendererContext:(id)context mailbox:(id)mailbox config:(MSGThreadListConfig *)config {
+    SNDiagnosticsRecordFeatureHit(@"hideNotesRow", config, [NSString stringWithFormat:@"enabled=%d", hideNotesRow]);
+    SNDiagnosticsRecordFeatureHit(@"hideSearchBar", config, [NSString stringWithFormat:@"enabled=%d", hideSearchBar]);
     [config setValueForField:@"shouldShowSearch", !hideSearchBar];
     [config setValueForField:@"shouldShowInboxUnit", !hideNotesRow];
     return %orig;
@@ -560,6 +574,7 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 %hook MSGThreadViewController
 
 - (instancetype)initWithMailbox:(id)arg1 threadQueryKey:(id)arg2 threadSessionLifecycle:(id)arg3 threadNavigationData:(id)arg4 navigationEntryPoint:(int)arg5 options:(MSGThreadViewControllerOptions *)options metricContextsContainer:(id)arg7 datasource:(id)arg8 {
+    SNDiagnosticsRecordFeatureHit(@"chatOpenSettings", self, [NSString stringWithFormat:@"badge=%d keyboard=%@", hideNotifBadgesInChat, keyboardStateAfterEnterChat ?: @"(nil)"]);
     MSGThreadViewOptions *viewOptions = [options viewOptions];
 
     [viewOptions setValueForField:@"shouldHideBadgeInBackButton", hideNotifBadgesInChat];
@@ -572,6 +587,7 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 }
 
 - (void)messageListViewControllerDidLongPressBackground:(id)arg1 {
+    SNDiagnosticsRecordFeatureHit(@"disableLongPressToChangeTheme", self, [NSString stringWithFormat:@"enabled=%d", disableLongPressToChangeChatTheme]);
     if (!disableLongPressToChangeChatTheme) %orig;
 }
 
@@ -593,6 +609,7 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 %hook MSGUniversalSearchNullStateViewController
 
 - (void)_updateHeaderList:(id)list {
+    SNDiagnosticsRecordFeatureHit(@"hideSuggestionsInSearch", self, [NSString stringWithFormat:@"enabled=%d route=nullState", hideSuggestionsInSearch]);
     if (!hideSuggestionsInSearch) %orig;
 }
 
@@ -601,6 +618,7 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 %hook LSContactListViewController
 
 - (void)didLoadContactList:(NSArray *)list contactExtrasById:(NSDictionary *)extras {
+    SNDiagnosticsRecordFeatureHit(@"hideSuggestionsInSearch", self, [NSString stringWithFormat:@"enabled=%d route=contactList", hideSuggestionsInSearch]);
     if (hideSuggestionsInSearch) {
         NSString *featureIdentifier = MSHookIvar<NSString *>(self, "_featureIdentifier");
         if ([featureIdentifier isEqual:@"universal_search_null_state"]) {
@@ -621,6 +639,7 @@ static BOOL hideTabBar = NO;
 
 - (instancetype)initWithDependencies:(id)dependencies inboxLoadedCompletion:(id)completion {
     LSTabBarDataSource *data = %orig;
+    SNDiagnosticsRecordFeatureHit(@"hideStoriesTab", data, [NSString stringWithFormat:@"enabled=%d", hideStoriesTab]);
     NSMutableArray *items = [MSHookIvar<NSArray *>(data, "_tabBarItems") mutableCopy];
     NSMutableArray *itemsInfo = [MSHookIvar<NSArray <MSGTabBarItemInfo *> *>(data, "_tabBarItemInfos") mutableCopy];
     NSArray *removedItems = @[hidePeopleTab ? @"tabbar-people" : @"", hideStoriesTab ? @"tabbar-stories" : @""];
@@ -657,11 +676,13 @@ static BOOL hideTabBar = NO;
 %hook MSGThreadRowCell
 
 - (BOOL)_isTypingWithModel:(id)arg1 {
+    SNDiagnosticsRecordFeatureHit(@"hideTypingIndicator", self, [NSString stringWithFormat:@"mode=%@ route=threadRow", hideTypingIndicator ?: @"(nil)"]);
     return [@[@"IN_THREAD_LIST_ONLY", @"BOTH"] containsObject:hideTypingIndicator] ? NO : %orig;
 }
 
 // v458.0.0
 - (BOOL)_isTypingWithModel:(id)arg1 mailbox:(id)arg2 {
+    SNDiagnosticsRecordFeatureHit(@"hideTypingIndicator", self, [NSString stringWithFormat:@"mode=%@ route=threadRowMailbox", hideTypingIndicator ?: @"(nil)"]);
     return [@[@"IN_THREAD_LIST_ONLY", @"BOTH"] containsObject:hideTypingIndicator] ? NO : %orig;
 }
 
@@ -670,6 +691,7 @@ static BOOL hideTabBar = NO;
 %hook MSGMessageListViewModelGenerator
 
 - (void)didLoadThreadModel:(id)arg1 threadViewModelMap:(id)arg2 threadSessionIdentifier:(id)arg3 messageModels:(NSMutableArray <MSGTempMessageListItemModel *> *)models threadParticipants:(id)arg6 attributionIDV2:(id)arg7 loadMoreStateOlder:(int)arg8 loadMoreStateNewer:(int)arg9 didLoadNewIsland:(BOOL)arg10 modelFetchedTimeInSeconds:(CGFloat)arg11 completion:(id)arg12 {
+    SNDiagnosticsRecordFeatureHit(@"hideTypingIndicator", self, [NSString stringWithFormat:@"mode=%@ route=messageListNew", hideTypingIndicator ?: @"(nil)"]);
     if ([models count] > 0) {
         MSGTempMessageListItemModel *indicatorModel = [models objectAtIndex:[models count] - 1];
         if ([@[@"IN_CHAT_ONLY", @"BOTH"] containsObject:hideTypingIndicator] && [[indicatorModel messageId] isEqual:@"typing_indicator"]) {
@@ -682,6 +704,7 @@ static BOOL hideTabBar = NO;
 
 // v458.0.0
 - (void)didLoadThreadModel:(id)arg1 threadViewModelMap:(id)arg2 threadSessionIdentifier:(id)arg3 messageModels:(NSMutableArray <MSGTempMessageListItemModel *> *)models threadParticipants:(id)arg5 attributionIDV2:(id)arg6 loadMoreStateOlder:(int)arg7 loadMoreStateNewer:(int)arg8 didLoadNewIsland:(BOOL)arg9 completion:(id)arg10 {
+    SNDiagnosticsRecordFeatureHit(@"hideTypingIndicator", self, [NSString stringWithFormat:@"mode=%@ route=messageListLegacy", hideTypingIndicator ?: @"(nil)"]);
     if ([@[@"IN_CHAT_ONLY", @"BOTH"] containsObject:hideTypingIndicator] && [[[models lastObject] messageId] isEqual:@"typing_indicator"]) {
         [models removeLastObject];
     }
@@ -696,6 +719,7 @@ static BOOL hideTabBar = NO;
 %hook MSGInboxAdsUserScopedPlugin
 
 - (id)MSGInboxAdsUnitFetcher_MSGFetchInboxUnit:(id)arg1 {
+    SNDiagnosticsRecordFeatureHit(@"noAds", self, [NSString stringWithFormat:@"enabled=%d route=adsPlugin", noAds]);
     return noAds ? nil : %orig;
 }
 
@@ -705,6 +729,7 @@ static BOOL hideTabBar = NO;
 %hook MSGThreadListDataSource
 
 - (NSArray *)inboxRows {
+    SNDiagnosticsRecordFeatureHit(@"noAds", self, [NSString stringWithFormat:@"enabled=%d route=inboxRows", noAds]);
     // Kept out of the message send: current Logos mis-expands %orig as a
     // message receiver here and drops the rest of the expression.
     NSArray *originalRows = %orig;
@@ -747,6 +772,7 @@ static BOOL hideTabBar = NO;
 %hook LSStoryOverlayProfileView
 
 - (void)_handleOverflowMenuButton:(UIButton *)button {
+    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:@"enabled=%d", canSaveFriendsStories]);
     NSMutableArray *actions = [MSHookIvar<NSArray *>(self, "_overflowActions") mutableCopy];
     NSString *storyAuthorId = MSHookIvar<NSString *>(self, "_storyAuthorId");
     if (canSaveFriendsStories && ![storyAuthorId isEqual:[[%c(FBAnalytics) sharedAnalytics] userFBID]] && [actions count] == 3) {

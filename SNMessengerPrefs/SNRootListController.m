@@ -3,6 +3,11 @@
 #import <Cephei/HBPreferences.h>
 #import <Preferences/PSSpecifier.h>
 #import <UIKit/UIKit.h>
+#import <rootless.h>
+#import <spawn.h>
+#import <sys/wait.h>
+
+extern char **environ;
 
 static NSString * const SNDiagnosticsDomain = @"com.nguyenasang.snmessenger.diagnostics";
 static NSString * const SNDiagnosticsReportKey = @"latestReport";
@@ -28,10 +33,18 @@ static NSArray<NSString *> *SNSettingKeys(void) {
 @property (nonatomic, readonly) NSURL *dataContainerURL;
 @end
 
+@interface SNRootListController ()
+- (NSString * _Nullable)messengerContainerPath;
+- (NSString * _Nullable)messengerSettingsPath;
+- (BOOL)writeLegacySettingsValue:(id _Nullable)value key:(NSString *)key;
+- (BOOL)synchronizeSettingsTransport;
+@end
+
 @implementation SNRootListController
 
 - (NSArray *)specifiers {
     if (_specifiers == nil) {
+        [self synchronizeSettingsTransport];
         _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
     }
     return _specifiers;
@@ -45,6 +58,10 @@ static NSArray<NSString *> *SNSettingKeys(void) {
     NSString *key = [specifier propertyForKey:@"key"];
     if (key.length == 0) return nil;
 
+    NSDictionary *legacySettings = [NSDictionary dictionaryWithContentsOfFile:[self messengerSettingsPath]];
+    id legacyValue = legacySettings[key];
+    if (legacyValue != nil) return legacyValue;
+
     HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
     id value = [preferences objectForKey:key];
     return value ?: [specifier propertyForKey:@"default"];
@@ -56,15 +73,14 @@ static NSArray<NSString *> *SNSettingKeys(void) {
 
     HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
     [preferences setObject:value forKey:key];
+    [self writeLegacySettingsValue:value key:key];
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), SNSettingsChangedNotification, NULL, NULL, YES);
 }
 
-- (NSString *)messengerReportPath {
+- (NSString *)messengerContainerPath {
     LSApplicationProxy *proxy = [LSApplicationProxy applicationProxyForIdentifier:@"com.facebook.Messenger"];
     NSString *containerPath = proxy.dataContainerURL.path;
-    if (containerPath.length > 0) {
-        return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessengerDiagnostics.txt"];
-    }
+    if (containerPath.length > 0) return containerPath;
 
     NSString *containersRoot = @"/var/mobile/Containers/Data/Application";
     for (NSString *identifier in [NSFileManager.defaultManager contentsOfDirectoryAtPath:containersRoot error:nil]) {
@@ -72,10 +88,85 @@ static NSArray<NSString *> *SNSettingKeys(void) {
         NSString *metadataPath = [container stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist"];
         NSDictionary *metadata = [NSDictionary dictionaryWithContentsOfFile:metadataPath];
         if ([metadata[@"MCMMetadataIdentifier"] isEqualToString:@"com.facebook.Messenger"]) {
-            return [[container stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessengerDiagnostics.txt"];
+            return container;
         }
     }
     return nil;
+}
+
+- (NSString *)messengerSettingsPath {
+    NSString *containerPath = [self messengerContainerPath];
+    if (containerPath.length == 0) return nil;
+    return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessenger.plist"];
+}
+
+- (NSString *)messengerReportPath {
+    NSString *containerPath = [self messengerContainerPath];
+    if (containerPath.length == 0) return nil;
+    return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessengerDiagnostics.txt"];
+}
+
+- (BOOL)writeLegacySettingsValue:(id)value key:(NSString *)key {
+    NSString *path = [self messengerSettingsPath];
+    if (path.length == 0 || key.length == 0) return NO;
+
+    NSMutableDictionary *settings = [[NSMutableDictionary alloc] initWithContentsOfFile:path] ?: [NSMutableDictionary dictionary];
+    if (value != nil) settings[key] = value;
+    else [settings removeObjectForKey:key];
+    return [settings writeToFile:path atomically:YES];
+}
+
+- (BOOL)synchronizeSettingsTransport {
+    NSString *path = [self messengerSettingsPath];
+    if (path.length == 0) return NO;
+
+    NSMutableDictionary *merged = [[NSMutableDictionary alloc] initWithContentsOfFile:path] ?: [NSMutableDictionary dictionary];
+    HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
+    for (NSString *key in SNSettingKeys()) {
+        id sharedValue = [preferences objectForKey:key];
+        if (sharedValue != nil) merged[key] = sharedValue;
+    }
+    return [merged writeToFile:path atomically:YES];
+}
+
+- (BOOL)terminateMessenger {
+    const char *killallPath = ROOT_PATH("/usr/bin/killall");
+    pid_t child = 0;
+    char *const arguments[] = {
+        (char *)killallPath,
+        (char *)"Messenger",
+        NULL,
+    };
+    int spawnResult = posix_spawn(&child, killallPath, NULL, NULL, arguments, environ);
+    if (spawnResult == 0) {
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+            int status = 0;
+            waitpid(child, &status, 0);
+        });
+    }
+    return spawnResult == 0;
+}
+
+- (void)applySettings {
+    BOOL saved = [self synchronizeSettingsTransport];
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), SNSettingsChangedNotification, NULL, NULL, YES);
+    BOOL closeStarted = [self terminateMessenger];
+
+    NSString *title = nil;
+    NSString *message = nil;
+    if (!saved) {
+        title = [self localized:@"Could Not Save Settings"];
+        message = [self localized:@"Could not write settings to the Messenger container."];
+    } else if (closeStarted) {
+        title = [self localized:@"Applied"];
+        message = [self localized:@"Messenger was closed. Open it again to apply all settings."];
+    } else {
+        title = [self localized:@"Settings Saved"];
+        message = [self localized:@"Settings were saved, but Messenger could not be closed automatically."];
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (NSDictionary<NSString *, id> *)reportAndSource {
@@ -182,7 +273,10 @@ static NSArray<NSString *> *SNSettingKeys(void) {
         style:UIAlertActionStyleDestructive
         handler:^(__unused UIAlertAction *action) {
             HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SNSettingsDomain];
-            for (NSString *key in SNSettingKeys()) [preferences removeObjectForKey:key];
+            for (NSString *key in SNSettingKeys()) {
+                [preferences removeObjectForKey:key];
+                [self writeLegacySettingsValue:nil key:key];
+            }
             CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), SNSettingsChangedNotification, NULL, NULL, YES);
             [self reloadSpecifiers];
         }]];

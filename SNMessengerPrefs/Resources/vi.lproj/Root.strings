@@ -1,5 +1,14 @@
+"Apply" = "Áp dụng";
+"Saves every option and closes Messenger. Open Messenger again to apply all changes." = "Lưu toàn bộ tùy chọn và đóng Messenger. Mở lại Messenger để áp dụng mọi thay đổi.";
+"Apply & Close Messenger" = "Áp dụng & đóng Messenger";
+"Applied" = "Đã áp dụng";
+"Settings Saved" = "Đã lưu cài đặt";
+"Could Not Save Settings" = "Không thể lưu cài đặt";
+"Could not write settings to the Messenger container." = "Không thể ghi cài đặt vào vùng dữ liệu của Messenger.";
+"Messenger was closed. Open it again to apply all settings." = "Messenger đã được đóng. Hãy mở lại để áp dụng toàn bộ cài đặt.";
+"Settings were saved, but Messenger could not be closed automatically." = "Cài đặt đã được lưu nhưng không thể tự động đóng Messenger.";
 "General" = "Chung";
-"Changes apply to Messenger immediately when possible. Reopen Messenger after changing interface options." = "Các thay đổi sẽ áp dụng ngay khi có thể. Hãy mở lại Messenger sau khi đổi tùy chọn giao diện.";
+"Tap Apply after changing options." = "Nhấn Áp dụng sau khi thay đổi tùy chọn.";
 "Remove ads" = "Chặn quảng cáo";
 "Show read-receipt button" = "Hiện nút trạng thái đã đọc";
 "Chat" = "Trò chuyện";

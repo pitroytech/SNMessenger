@@ -40,10 +40,37 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("SN_PREFERENCES_IDENTIFIER", utilities)
         self.assertIn("HBPreferences", utilities)
         self.assertIn("dictionaryRepresentation", utilities)
-        self.assertIn("didMigrateLegacyPreferences", utilities)
-        self.assertNotIn("[result addEntriesFromDictionary", utilities)
+        self.assertIn("legacySettings", utilities)
+        self.assertIn("[result addEntriesFromDictionary:sharedSettings]", utilities)
+        self.assertNotIn("didMigrateLegacyPreferences", utilities)
         self.assertIn("setCurrentPreferenceValue", table_cell)
         self.assertNotIn("writeToFile:_plistPath", table_cell)
+
+    def test_settings_transport_mirrors_into_messenger_container_and_apply_closes_app(self):
+        controller = read("SNMessengerPrefs/SNRootListController.m")
+        root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())
+
+        self.assertIn("messengerSettingsPath", controller)
+        self.assertIn("synchronizeSettingsTransport", controller)
+        self.assertIn("writeLegacySettingsValue", controller)
+        self.assertIn("posix_spawn", controller)
+        self.assertIn('"Messenger"', controller)
+        self.assertIn("applySettings", controller)
+        actions = {item.get("action") for item in root.get("items", [])}
+        self.assertIn("applySettings", actions)
+
+    def test_diagnostics_reports_effective_values_and_runtime_feature_hits(self):
+        header = read("Diagnostics/SNDiagnostics.h")
+        implementation = read("Diagnostics/SNDiagnostics.mm")
+        tweak = read("SNMessenger.xm")
+
+        self.assertIn("SNDiagnosticsRecordFeatureHit", header)
+        self.assertIn("=== effective settings ===", implementation)
+        self.assertIn("=== feature hook hits ===", implementation)
+        self.assertIn("SNDefaultSettings", implementation)
+        self.assertIn("SNDiagnosticsRecordFeatureHit", tweak)
+        self.assertIn('hideMetaAIFloatingButton', tweak)
+        self.assertIn("appliedHidden=", tweak)
 
     def test_hook_matrix_and_candidate_scan_are_bounded(self):
         implementation = read("Diagnostics/SNDiagnostics.mm")
@@ -59,6 +86,10 @@ class DiagnosticsReleaseTests(unittest.TestCase):
             self.assertIn(token, implementation)
         self.assertRegex(implementation, r"kSNMaximumCandidateClasses\s*=\s*\d+")
         self.assertRegex(implementation, r"kSNMaximumCandidateMethods\s*=\s*\d+")
+        self.assertIn("class_getClassMethod", implementation)
+        self.assertIn('MSGModel|setValueForField:', implementation)
+        self.assertNotIn('MSGModel|setValueForField:value:', implementation)
+        self.assertIn('MSGCQLResultSetList|+newWithIdentifier:', implementation)
 
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")
@@ -70,7 +101,7 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         loader = plistlib.loads((ROOT / "layout/Library/PreferenceLoader/Preferences/SNMessengerPrefs.plist").read_bytes())
         actions = {item.get("action") for item in root.get("items", [])}
-        self.assertTrue({"refreshReport", "copyReport", "shareReport", "clearReport", "resetSettings"}.issubset(actions))
+        self.assertTrue({"applySettings", "refreshReport", "copyReport", "shareReport", "clearReport", "resetSettings"}.issubset(actions))
         preference_items = [item for item in root.get("items", []) if item.get("key")]
         preference_keys = {item["key"] for item in preference_items}
         expected_keys = {
@@ -113,7 +144,7 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         version = re.search(r"^Version:\s*(\S+)", control, re.MULTILINE).group(1)
         package_version = re.search(r"^PACKAGE_VERSION\s*=\s*(\S+)", makefile, re.MULTILINE).group(1)
-        self.assertEqual("2.2.0", version)
+        self.assertEqual("2.2.1", version)
         self.assertEqual(version, package_version)
         self.assertEqual(version, info["CFBundleShortVersionString"])
         self.assertIn("Package: com.nguyenasang.snmessenger", control)

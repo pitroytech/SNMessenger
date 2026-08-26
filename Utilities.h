@@ -77,19 +77,14 @@ static inline NSString *getSettingsPlistPath() {
 static inline NSMutableDictionary *getCurrentSettings() {
     HBPreferences *preferences = [[HBPreferences alloc] initWithIdentifier:SN_PREFERENCES_IDENTIFIER];
     NSDictionary *legacySettings = [NSDictionary dictionaryWithContentsOfFile:getSettingsPlistPath()] ?: @{};
+    NSDictionary *sharedSettings = [preferences dictionaryRepresentation] ?: @{};
 
-    if ([preferences objectForKey:@"didMigrateLegacyPreferences"] == nil) {
-        [legacySettings enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
-            (void)stop;
-            if ([preferences objectForKey:key] == nil) {
-                [preferences setObject:value forKey:key];
-            }
-        }];
-        [preferences setObject:@YES forKey:@"didMigrateLegacyPreferences"];
-    }
-
-    NSMutableDictionary *result = [[preferences dictionaryRepresentation] mutableCopy];
-    [result removeObjectForKey:@"didMigrateLegacyPreferences"];
+    // A sandboxed Messenger 575 process can receive the Darwin notification
+    // while still seeing an empty cross-process HBPreferences domain. The
+    // app-container plist is therefore the reliable transport; shared values
+    // only override it on systems where Cephei exposes them to the app.
+    NSMutableDictionary *result = [legacySettings mutableCopy];
+    [result addEntriesFromDictionary:sharedSettings];
     return result;
 }
 

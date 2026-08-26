@@ -18,6 +18,7 @@ static const NSUInteger kSNMaximumObservedControllers = 120;
 static dispatch_queue_t gSNDiagnosticsQueue;
 static HBPreferences *gSNDiagnosticsPreferences;
 static NSMutableDictionary<NSString *, NSString *> *gSNSymbols;
+static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, id> *> *gSNFeatureHits;
 static NSMutableOrderedSet<NSString *> *gSNObservedControllers;
 static NSMutableArray<NSString *> *gSNSettingsEvents;
 static NSArray<NSString *> *gSNCandidates;
@@ -63,11 +64,11 @@ static NSArray<NSString *> *SNHookInventory(void) {
         @"MSGCommunityListViewController|_headerSectionCellConfigs",
         @"MDSNavigationController|viewWillAppear:",
         @"MSGSettingsViewController|viewDidAppear:",
-        @"MSGModel|setValueForField:value:",
+        @"MSGModel|setValueForField:",
         @"MSGModel|valueAtFieldIndex:",
         @"LSMediaPickerViewController|collectionView:shouldSelectItemAtIndexPath:",
         @"MSGNavigationCoordinator_LSNavigationCoordinatorProxy|presentAlertWithCompletion:",
-        @"MSGCQLResultSetList|newWithIdentifier:context:resultSet:resultSetCount:options:actionHandlers:impressionTrackingContext:",
+        @"MSGCQLResultSetList|+newWithIdentifier:context:resultSet:resultSetCount:options:actionHandlers:impressionTrackingContext:",
         @"LSStoryBucketViewController|startTimer",
         @"LSStoryBucketViewController|replyBarWillPlayStoryFromBeginning:",
         @"MSGMetaAIFAB.MSGMetaAIFABViewController|viewDidLoad",
@@ -80,11 +81,39 @@ static NSArray<NSString *> *SNHookInventory(void) {
         @"MDSTabBarController|_prepareTabBar",
         @"MSGThreadRowCell|_isTypingWithModel:",
         @"MSGThreadRowCell|_isTypingWithModel:mailbox:",
+        @"MSGMessageListViewModelGenerator|didLoadThreadModel:threadViewModelMap:threadSessionIdentifier:messageModels:threadParticipants:attributionIDV2:loadMoreStateOlder:loadMoreStateNewer:didLoadNewIsland:completion:",
         @"MSGInboxAdsUserScopedPlugin|MSGInboxAdsUnitFetcher_MSGFetchInboxUnit:",
         @"MSGThreadListDataSource|inboxRows",
         @"LSStoryViewerContentController|_updateStoriesWithBucketStoryModels:deletedIndexPaths:addedIndexPaths:newIndexPath:",
         @"LSStoryOverlayProfileView|_handleOverflowMenuButton:",
     ];
+}
+
+static NSDictionary<NSString *, id> *SNDefaultSettings(void) {
+    return @{
+        @"noAds": @YES,
+        @"showTheEyeButton": @YES,
+        @"alwaysSendHdPhotos": @YES,
+        @"callConfirmation": @YES,
+        @"disableLongPressToChangeTheme": @NO,
+        @"disableReadReceipts": @YES,
+        @"disableTypingIndicator": @NO,
+        @"hideTypingIndicator": @"NOWHERE",
+        @"hideNotifBadgesInChat": @NO,
+        @"keyboardStateAfterEnterChat": @"ADAPTIVE",
+        @"canSaveFriendsStories": @YES,
+        @"disableStoriesPreview": @NO,
+        @"disableStorySeenReceipts": @YES,
+        @"extendStoryVideoUploadLength": @YES,
+        @"hideStatusBarWhenViewingStory": @YES,
+        @"neverReplayStoryAfterReacting": @NO,
+        @"hideMetaAIFloatingButton": @NO,
+        @"hideNotesRow": @NO,
+        @"hidePeopleTab": @NO,
+        @"hideStoriesTab": @NO,
+        @"hideSearchBar": @NO,
+        @"hideSuggestionsInSearch": @NO,
+    };
 }
 
 static void SNRunCandidateScanLocked(void) {
@@ -141,11 +170,18 @@ static void SNAppendHookMatrix(NSMutableString *report) {
         NSArray<NSString *> *parts = [entry componentsSeparatedByString:@"|"];
         NSString *className = parts.firstObject;
         NSString *selectorName = parts.lastObject;
+        BOOL isClassMethod = [selectorName hasPrefix:@"+"];
+        if (isClassMethod) selectorName = [selectorName substringFromIndex:1];
         Class cls = objc_lookUpClass(className.UTF8String);
-        Method method = cls ? class_getInstanceMethod(cls, NSSelectorFromString(selectorName)) : NULL;
+        Method method = cls
+            ? (isClassMethod
+                ? class_getClassMethod(cls, NSSelectorFromString(selectorName))
+                : class_getInstanceMethod(cls, NSSelectorFromString(selectorName)))
+            : NULL;
         const char *types = method ? method_getTypeEncoding(method) : NULL;
-        [report appendFormat:@"%@ %@ class=%d selector=%d types=%s image=%@\n",
+        [report appendFormat:@"%@ %@%@ class=%d selector=%d types=%s image=%@\n",
             className,
+            isClassMethod ? @"+" : @"-",
             selectorName,
             cls != Nil,
             method != NULL,
@@ -173,11 +209,15 @@ static NSString *SNBuildReportLocked(void) {
     NSDictionary *settings = [NSDictionary dictionaryWithContentsOfFile:settingsPath];
     HBPreferences *sharedPreferences = [[HBPreferences alloc] initWithIdentifier:@"com.nguyenasang.snmessenger"];
     NSDictionary *sharedSettings = [sharedPreferences dictionaryRepresentation] ?: @{};
+    NSDictionary *defaultSettings = SNDefaultSettings();
+    NSMutableDictionary *effectiveSettings = [defaultSettings mutableCopy];
+    [effectiveSettings addEntriesFromDictionary:settings ?: @{}];
+    [effectiveSettings addEntriesFromDictionary:sharedSettings];
     NSFileManager *fileManager = NSFileManager.defaultManager;
     NSMutableString *report = [NSMutableString string];
 
     [report appendString:@"SNMessenger diagnostics\n"];
-    [report appendString:@"probeVersion: 2.2.0\n"];
+    [report appendString:@"probeVersion: 2.2.1\n"];
     [report appendFormat:@"timestamp: %@\n", SNDateString([NSDate date])];
     [report appendFormat:@"lastReason: %@\n", gSNLastReason ?: @"startup"];
     [report appendFormat:@"process: %@ pid=%d\n", NSProcessInfo.processInfo.processName, getpid()];
@@ -193,9 +233,20 @@ static NSString *SNBuildReportLocked(void) {
         (unsigned long)settings.count];
     [report appendFormat:@"settingsKeys: %@\n", [[settings.allKeys sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@", "] ?: @""];
     [report appendFormat:@"sharedSettingsKeys: %@\n", [[sharedSettings.allKeys sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@", "] ?: @""];
+    [report appendFormat:@"effectiveSettingsSource: defaults=%lu appContainer=%lu shared=%lu merged=%lu\n",
+        (unsigned long)defaultSettings.count,
+        (unsigned long)settings.count,
+        (unsigned long)sharedSettings.count,
+        (unsigned long)effectiveSettings.count];
     [report appendFormat:@"reportPath: %@\n", SNReportPath()];
     [report appendString:@"sharedTransport: HBPreferences + app-container file fallback\n"];
     [report appendString:@"symbolFrameworksExpected: LightSpeedCore, LightSpeedEngine\n"];
+
+    [report appendString:@"\n=== effective settings ===\n"];
+    for (NSString *key in [effectiveSettings.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        id value = effectiveSettings[key];
+        [report appendFormat:@"%@=%@ (%@)\n", key, value, value ? NSStringFromClass([value class]) : @"nil"];
+    }
 
     SNAppendHookMatrix(report);
 
@@ -211,6 +262,17 @@ static NSString *SNBuildReportLocked(void) {
     [report appendString:@"\n=== settings route events ===\n"];
     if (gSNSettingsEvents.count == 0) [report appendString:@"No settings route hook has fired\n"];
     for (NSString *event in gSNSettingsEvents) [report appendFormat:@"%@\n", event];
+
+    [report appendString:@"\n=== feature hook hits ===\n"];
+    if (gSNFeatureHits.count == 0) [report appendString:@"No tracked feature hook has fired yet\n"];
+    for (NSString *feature in [gSNFeatureHits.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        NSDictionary *hit = gSNFeatureHits[feature];
+        [report appendFormat:@"%@ count=%@ target=%@ detail=%@\n",
+            feature,
+            hit[@"count"] ?: @0,
+            hit[@"target"] ?: @"(nil)",
+            hit[@"detail"] ?: @"none"];
+    }
 
     [report appendString:@"\n=== observed view controllers ===\n"];
     if (gSNObservedControllers.count == 0) [report appendString:@"No view controller observed yet\n"];
@@ -268,6 +330,7 @@ void SNDiagnosticsStart(void) {
         gSNDiagnosticsQueue = dispatch_queue_create("com.nguyenasang.snmessenger.diagnostics", DISPATCH_QUEUE_SERIAL);
         gSNDiagnosticsPreferences = [[HBPreferences alloc] initWithIdentifier:SNDiagnosticsDomain];
         gSNSymbols = [NSMutableDictionary dictionary];
+        gSNFeatureHits = [NSMutableDictionary dictionary];
         gSNObservedControllers = [NSMutableOrderedSet orderedSet];
         gSNSettingsEvents = [NSMutableArray array];
         gSNDateFormatter = [[NSDateFormatter alloc] init];
@@ -331,6 +394,27 @@ void SNDiagnosticsRecordViewController(UIViewController *controller) {
             if (gSNObservedControllers.count >= kSNMaximumObservedControllers) [gSNObservedControllers removeObjectAtIndex:0];
             [gSNObservedControllers addObject:line];
             SNScheduleFlushLocked(@"view controller appeared");
+        }
+    });
+}
+
+void SNDiagnosticsRecordFeatureHit(NSString *feature, id target, NSString *detail) {
+    if (gSNDiagnosticsQueue == nil || feature.length == 0) return;
+    NSString *featureName = [feature copy];
+    NSString *targetName = target ? NSStringFromClass([target class]) : @"(nil)";
+    NSString *detailText = [detail copy] ?: @"none";
+    dispatch_async(gSNDiagnosticsQueue, ^{
+        NSMutableDictionary<NSString *, id> *hit = gSNFeatureHits[featureName];
+        if (hit == nil) {
+            hit = [NSMutableDictionary dictionary];
+            gSNFeatureHits[featureName] = hit;
+        }
+        NSUInteger count = [hit[@"count"] unsignedIntegerValue] + 1;
+        hit[@"count"] = @(count);
+        hit[@"target"] = targetName;
+        hit[@"detail"] = detailText;
+        if (count <= 3 || count % 25 == 0) {
+            SNScheduleFlushLocked([NSString stringWithFormat:@"feature hook %@", featureName]);
         }
     });
 }

@@ -13,5 +13,6 @@ void SNDiagnosticsFlush(NSString *reason);
 void SNDiagnosticsRecordSymbol(NSString *framework, const char *symbol, BOOL found, const void *address);
 void SNDiagnosticsRecordSettingsEntry(NSString *source, id controller, NSInteger itemCount);
 void SNDiagnosticsRecordViewController(UIViewController *controller);
+void SNDiagnosticsRecordFeatureHit(NSString *feature, id _Nullable target, NSString * _Nullable detail);
 
 NS_ASSUME_NONNULL_END

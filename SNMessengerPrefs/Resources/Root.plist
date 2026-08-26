@@ -8,8 +8,19 @@
     <array>
         <dict>
             <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>Apply</string>
+            <key>footerText</key><string>Saves every option and closes Messenger. Open Messenger again to apply all changes.</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSButtonCell</string>
+            <key>label</key><string>Apply &amp; Close Messenger</string>
+            <key>action</key><string>applySettings</string>
+        </dict>
+
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
             <key>label</key><string>General</string>
-            <key>footerText</key><string>Changes apply to Messenger immediately when possible. Reopen Messenger after changing interface options.</string>
+            <key>footerText</key><string>Tap Apply after changing options.</string>
         </dict>
         <dict>
             <key>cell</key><string>PSSwitchCell</string>
