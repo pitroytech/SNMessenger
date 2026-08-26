@@ -1,4 +1,5 @@
 #import "Settings/SNSettingsViewController.h"
+#import "Diagnostics/SNDiagnostics.h"
 #import "SNMessenger.h"
 
 #pragma mark - Global variables & functions
@@ -147,6 +148,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
 
 - (NSMutableArray *)_headerSectionCellConfigs {
     NSMutableArray *cellConfigs = %orig;
+    SNDiagnosticsRecordSettingsEntry(@"MSGCommunityListViewController._headerSectionCellConfigs", self, (NSInteger)cellConfigs.count);
     if ([cellConfigs count] == 3) {
         NSArray *folders = MSHookIvar<NSArray *>(self, "_folders");
         MSGInboxFolderListItemInfoFolder *settingsConfig = [[folders firstObject] copy];
@@ -179,6 +181,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
 %property (nonatomic, retain) UIBarButtonItem *settingsItem;
 
 - (void)viewWillAppear:(BOOL)arg1 {
+    SNDiagnosticsRecordSettingsEntry(@"MDSNavigationController.viewWillAppear", self, (NSInteger)self.viewControllers.count);
     // v458.0.0 (old UI)
     if (!self.settingsItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGSettingsViewController)]) {
         UIButton *settingsButton = [[UIButton alloc] init];
@@ -771,11 +774,23 @@ static BOOL hideTabBar = NO;
 
 %end
 
+// Diagnostic build only: record distinct navigation routes in Messenger. The
+// recorder is bounded and only writes after a new route is observed.
+%hook UIViewController
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    SNDiagnosticsRecordViewController(self);
+}
+
+%end
+
 %ctor {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)reloadPrefs, CFSTR(PREF_CHANGED_NOTIF), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
     reloadPrefs();
 
     tweakBundle = SNMessengerBundle();
+    SNDiagnosticsStart();
 
     SNHookFunctions({
         {"LightSpeedCore", {

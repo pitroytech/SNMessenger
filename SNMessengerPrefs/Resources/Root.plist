@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>title</key>
+    <string>SNMessenger</string>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>SNMessenger Diagnostics</string>
+            <key>footerText</key>
+            <string>Open Messenger and visit Inbox, Profile and Settings before refreshing this report.</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSTitleValueCell</string>
+            <key>label</key>
+            <string>Last Report</string>
+            <key>get</key>
+            <string>statusValue:</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Refresh Report</string>
+            <key>action</key>
+            <string>refreshReport</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Copy Report</string>
+            <key>action</key>
+            <string>copyReport</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Share Report File</string>
+            <key>action</key>
+            <string>shareReport</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>Clear Report</string>
+            <key>action</key>
+            <string>clearReport</string>
+        </dict>
+    </array>
+</dict>
+</plist>

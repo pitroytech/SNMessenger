@@ -1,4 +1,4 @@
-name: Build
+name: Build SNMessenger
 
 on:
   push:
@@ -6,6 +6,13 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snmessenger-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -66,6 +73,9 @@ jobs:
           fi
           command -v ldid
 
+      - name: Run diagnostics regression tests
+        run: python3 tools/test-diagnostics.py
+
       - name: Build package
         run: make clean package FINALPACKAGE=1 ${{ matrix.flags }}
 
@@ -78,9 +88,40 @@ jobs:
           echo "--- contents ---"
           dpkg-deb -c "$deb"
 
+      - name: Prepare release package
+        run: |
+          set -eu
+          deb="$(ls packages/*.deb | head -n 1)"
+          version="$(awk '/^Version:/ { print $2 }' control)"
+          release_deb="SNMessenger-${version}-${{ matrix.name }}.deb"
+          cp "$deb" "$release_deb"
+          echo "RELEASE_DEB=$release_deb" >> "$GITHUB_ENV"
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: packages/*.deb
+          path: SNMessenger-*-${{ matrix.name }}.deb
           if-no-files-found: error
+
+      - name: Rolling phone release
+        if: github.ref == 'refs/heads/port-latest' && matrix.name == 'rootless'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          cp "$RELEASE_DEB" SNMessenger-latest-rootless.deb
+          version="$(awk '/^Version:/ { print $2 }' control)"
+
+          if ! gh release view snmessenger-probe >/dev/null 2>&1; then
+            gh release create snmessenger-probe \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "SNMessenger diagnostics probe" \
+              --notes "Direct rootless diagnostic package for phone installation."
+          fi
+
+          gh release upload snmessenger-probe SNMessenger-latest-rootless.deb --clobber
+          gh release edit snmessenger-probe \
+            --title "SNMessenger ${version} diagnostics probe" \
+            --notes "Built from ${GITHUB_SHA}. Download SNMessenger-latest-rootless.deb directly in Safari."

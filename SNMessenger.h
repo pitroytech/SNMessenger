@@ -14,6 +14,7 @@
 #import "Headers/MSGThreadListDataSource.h"
 #import "SNVersionTraits.h"
 #import "Utilities.h"
+#import "Diagnostics/SNDiagnostics.h"
 #import "fishhook/fishhook.h"
 #import <map>
 #import <string>
@@ -122,6 +123,7 @@ static inline void SNHookFunctions(map<const char *, vector<struct rebinding>> m
             void *handle = dlopen([[NSString stringWithFormat:@"%s.framework/%s", pair.first, pair.first] UTF8String], RTLD_LAZY);
             for (uint j = 0; j < rebindings_nel; j++) {
                 *(rebindings[j].replaced) = dlsym(handle, rebindings[j].name);
+                SNDiagnosticsRecordSymbol([NSString stringWithUTF8String:pair.first], rebindings[j].name, *(rebindings[j].replaced) != NULL, *(rebindings[j].replaced));
                 //RLog(@"%s | %p", rebindings[j].name, *(rebindings[j].replaced));
             }
 
@@ -134,6 +136,7 @@ static inline void SNHookFunctions(map<const char *, vector<struct rebinding>> m
                 rebindings[j].name = lowLevelName.c_str();
 
                 *(rebindings[j].replaced) = MSFindSymbol(ImageRef, rebindings[j].name);
+                SNDiagnosticsRecordSymbol([NSString stringWithUTF8String:pair.first], rebindings[j].name, *(rebindings[j].replaced) != NULL, *(rebindings[j].replaced));
                 if (!*(rebindings[j].replaced)) {
                     RLog(@"Failed to find symbol '%s' in %s", rebindings[j].name, pair.first);
                     continue;

@@ -1,9 +1,9 @@
 Package: com.nguyenasang.snmessenger
 Name: SNMessenger
-Depends: mobilesubstrate, firmware (>= 12.4)
-Version: 1.0.0
+Depends: mobilesubstrate, preferenceloader, ws.hbang.common (>= 2.0), firmware (>= 12.4)
+Version: 2.1.0
 Architecture: iphoneos-arm
-Description: A full-featured tweak for Messenger.
+Description: SNMessenger with an on-device compatibility diagnostics probe.
 Maintainer: NguyenASang
 Author: NguyenASang
 Section: Tweaks
