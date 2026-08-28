@@ -931,8 +931,15 @@ static BOOL hideTabBar = NO;
     // Kept out of the message send: current Logos mis-expands %orig as a
     // message receiver here and drops the rest of the expression.
     NSArray *originalRows = %orig;
+    // The inbox re-reads its rows constantly, so the copy is worth avoiding
+    // when there is nothing to remove — and handing back the original array
+    // also leaves the app's own identity checks intact.
+    if (!noAds) {
+        return originalRows;
+    }
+
     NSMutableArray *currentRows = [originalRows mutableCopy];
-    if ([self isInitializationComplete] && noAds && [currentRows count] > 0) {
+    if ([self isInitializationComplete] && [currentRows count] > 0) {
         MSGThreadListUnitsSate *unitsState = MSHookIvar<MSGThreadListUnitsSate *>(self, "_unitsState");
         NSMutableDictionary *units = [unitsState unitKeyToUnit];
         MSGInboxUnit *adUnit = [units objectForKey:@"ads_renderer"];
@@ -952,6 +959,14 @@ static BOOL hideTabBar = NO;
 %hook LSStoryViewerContentController
 
 - (void)_updateStoriesWithBucketStoryModels:(NSMutableArray *)models deletedIndexPaths:(id)arg2 addedIndexPaths:(NSArray *)addedIndexPaths newIndexPath:(id)arg4 {
+    // Ad removal, so it follows the ad switch. It used to run whichever way the
+    // switch was set, which both walked the bucket list for nothing and removed
+    // ads for someone who had asked to keep them.
+    if (!noAds) {
+        %orig;
+        return;
+    }
+
     // Bucket types: 0 = unread | 1 = advertisement | 2 = read
     for (MSGStoryViewerBucketModel *model in [models reverseObjectEnumerator]) {
         if ([model bucketType] == 1) {
@@ -965,6 +980,12 @@ static BOOL hideTabBar = NO;
 
 %end
 
+#if SN_DIAGNOSTICS
+
+// Only the probe ever wanted this. Swizzling -viewDidAppear: on every view
+// controller in Messenger is the single most expensive thing the tweak has ever
+// done, and it buys the user nothing, so a release build does not install it at
+// all rather than installing a hook that immediately calls through.
 %hook UIViewController
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -973,6 +994,8 @@ static BOOL hideTabBar = NO;
 }
 
 %end
+
+#endif
 
 %ctor {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)reloadPrefs, CFSTR(PREF_CHANGED_NOTIF), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);

@@ -208,12 +208,17 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("SNDiagnosticsRecordSymbol", hook_header)
         self.assertIn("MSFindSymbol", hook_header)
 
-    def test_preference_bundle_has_copy_share_refresh_and_vietnamese(self):
+    def test_preference_bundle_is_a_release_page_without_diagnostics(self):
         root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         loader = plistlib.loads((ROOT / "layout/Library/PreferenceLoader/Preferences/SNMessengerPrefs.plist").read_bytes())
         actions = {item.get("action") for item in root.get("items", [])}
-        self.assertTrue({"applySettings", "refreshReport", "copyReport", "shareReport", "clearReport", "resetSettings"}.issubset(actions))
+        self.assertTrue({"applySettings", "resetSettings"}.issubset(actions))
+        # The report rows are built in code under SN_DIAGNOSTICS instead, so a
+        # release page cannot reach code that reads a report nothing writes.
+        for probe_action in ("refreshReport", "copyReport", "shareReport", "clearReport"):
+            self.assertNotIn(probe_action, actions, probe_action)
+        self.assertNotIn("statusValue:", {item.get("get") for item in root.get("items", [])})
         preference_items = [item for item in root.get("items", []) if item.get("key")]
         preference_keys = {item["key"] for item in preference_items}
         # The eight the owner asked to keep, all with a hook that is alive on 575.
@@ -232,8 +237,6 @@ class DiagnosticsReleaseTests(unittest.TestCase):
             self.assertNotIn(dead, preference_keys, dead)
         self.assertTrue(all(item.get("defaults") == "com.nguyenasang.snmessenger" for item in preference_items))
         self.assertTrue(all(item.get("PostNotification") == "SNMessenger/prefChanged" for item in preference_items))
-        value_getters = {item.get("get") for item in root.get("items", []) if item.get("get")}
-        self.assertIn("statusValue:", value_getters)
         self.assertEqual("PSLinkCell", loader["entry"]["cell"])
         self.assertEqual("SNRootListController", loader["entry"]["detail"])
         self.assertTrue(loader["entry"]["isController"])
@@ -281,6 +284,59 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("THEOS_PACKAGE_SCHEME = rootless", prefs_makefile)
         self.assertIn("ARCHS = arm64 arm64e", prefs_makefile)
         self.assertIn("Cephei", prefs_makefile)
+
+    def test_the_probe_costs_nothing_in_a_release_build(self):
+        """The probe is opt-in at build time, and opting out has to be total.
+
+        Leaving it compiled in is not a small cost. It swizzles
+        -viewDidAppear: on every view controller in Messenger, formats a
+        string on per-row paths like the typing check, walks the class list
+        twice per launch and rewrites a multi-kilobyte report whenever
+        anything moves.
+        """
+        makefile = read("Makefile")
+        prefs_makefile = read("SNMessengerPrefs/Makefile")
+        header = read("Diagnostics/SNDiagnostics.h")
+        tweak = read("SNMessenger.xm")
+
+        # Sources are linked only under the flag, so a release build does not
+        # carry the probe's code at all.
+        self.assertIn("ifeq ($(DIAGNOSTICS), 1)", makefile)
+        self.assertIn("-DSN_DIAGNOSTICS=1", makefile)
+        self.assertIn("ifeq ($(DIAGNOSTICS), 1)", prefs_makefile)
+        diagnostics_line = next(
+            line for line in makefile.splitlines()
+            if "Diagnostics/SNDiagnostics.mm" in line
+        )
+        self.assertIn("+=", diagnostics_line, "sources must be conditional, not base")
+
+        # Variadic macros, so the argument expressions the call sites build are
+        # discarded unevaluated rather than passed to an empty function.
+        self.assertIn("#if SN_DIAGNOSTICS", header)
+        for function in ("SNDiagnosticsRecordFeatureHit", "SNDiagnosticsRecordSettingsEntry",
+                         "SNDiagnosticsRecordViewController", "SNDiagnosticsRecordModelFields",
+                         "SNDiagnosticsRecordSymbol", "SNDiagnosticsStart", "SNDiagnosticsFlush"):
+            self.assertIn(f"#define {function}(...)", header, function)
+
+        # The one hook that exists only for the probe is not installed at all.
+        self.assertIn("#if SN_DIAGNOSTICS\n\n// Only the probe ever wanted this", tweak)
+        matrix_hook = tweak.index("%hook UIViewController")
+        self.assertLess(tweak.index("#if SN_DIAGNOSTICS\n\n// Only the probe"), matrix_hook)
+
+    def test_ad_removal_does_no_work_when_it_is_switched_off(self):
+        """Both ad paths run on every inbox and story refresh, so the disabled
+        case has to cost nothing — and the story path used to strip ads even
+        for someone who had asked to keep them."""
+        tweak = read("SNMessenger.xm")
+        inbox = tweak[tweak.index("- (NSArray *)inboxRows"):]
+        inbox = inbox[:inbox.index("%end")]
+        self.assertIn("if (!noAds) {\n        return originalRows;", inbox)
+        self.assertLess(inbox.index("if (!noAds)"), inbox.index("mutableCopy"))
+
+        stories = tweak[tweak.index("_updateStoriesWithBucketStoryModels"):]
+        stories = stories[:stories.index("%end")]
+        self.assertIn("if (!noAds) {", stories)
+        self.assertLess(stories.index("if (!noAds)"), stories.index("reverseObjectEnumerator"))
 
     def test_workflow_publishes_direct_rootless_deb(self):
         workflow = read(".github/workflows/build.yml")

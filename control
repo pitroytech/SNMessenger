@@ -1,9 +1,9 @@
 Package: com.nguyenasang.snmessenger
 Name: SNMessenger Lite
 Depends: mobilesubstrate, preferenceloader, ws.hbang.common (>= 2.0), firmware (>= 12.4)
-Version: 3.3
+Version: 3.4
 Architecture: iphoneos-arm
-Description: SNMessenger Lite for Messenger 575: ad removal, read receipts, Meta AI button, call confirmation and story controls. Build 3.3.
+Description: SNMessenger Lite for Messenger 575: ad removal, read receipts, Meta AI button, call confirmation and story controls. Build 3.4.
 Maintainer: NguyenASang
 Author: NguyenASang
 Section: Tweaks

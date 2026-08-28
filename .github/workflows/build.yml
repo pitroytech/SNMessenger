@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      diagnostics:
+        description: "Compile the probe in (slower, writes a report, hooks every view controller)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -77,7 +82,9 @@ jobs:
         run: python3 tools/test-diagnostics.py
 
       - name: Build package
-        run: make clean package FINALPACKAGE=1 ${{ matrix.flags }}
+        env:
+          DIAGNOSTICS: ${{ inputs.diagnostics && '1' || '0' }}
+        run: make clean package FINALPACKAGE=1 ${{ matrix.flags }} DIAGNOSTICS=$DIAGNOSTICS
 
       - name: Inspect produced package
         run: |
@@ -87,6 +94,29 @@ jobs:
           dpkg-deb -I "$deb"
           echo "--- contents ---"
           dpkg-deb -c "$deb"
+
+      - name: Confirm the probe is absent from a release build
+        if: ${{ !inputs.diagnostics }}
+        run: |
+          set -eu
+          # A Makefile flag is easy to believe and easy to get wrong, so the
+          # claim is checked against the binary that ships rather than against
+          # the build log.
+          deb="$(ls packages/*.deb | head -n 1)"
+          rm -rf /tmp/probecheck && mkdir -p /tmp/probecheck
+          dpkg-deb -x "$deb" /tmp/probecheck
+          dylib="$(find /tmp/probecheck -name 'SNMessenger.dylib' | head -n 1)"
+          test -n "$dylib" || { echo "no dylib in package"; exit 1; }
+
+          if grep -qa "=== hook matrix ===" "$dylib"; then
+            echo "FAIL: the probe's report strings are in the shipped binary"
+            exit 1
+          fi
+          if grep -qa "SNDiagnosticsRecordFeatureHit" "$dylib"; then
+            echo "FAIL: diagnostics symbols are in the shipped binary"
+            exit 1
+          fi
+          echo "OK: no probe strings or symbols in $dylib"
 
       - name: Prepare release package
         run: |
@@ -113,15 +143,23 @@ jobs:
           cp "$RELEASE_DEB" SNMessenger-latest-rootless.deb
           version="$(awk '/^Version:/ { print $2 }' control)"
 
+          if [ "${{ inputs.diagnostics }}" = "true" ]; then
+            title="SNMessenger ${version} (probe build)"
+            notes="Diagnostics compiled in. Slower, and it writes a report; use it to investigate, not to live with."
+          else
+            title="SNMessenger Lite ${version}"
+            notes="Release build, no diagnostics. Download SNMessenger-latest-rootless.deb directly in Safari."
+          fi
+
           if ! gh release view snmessenger-probe >/dev/null 2>&1; then
             gh release create snmessenger-probe \
               --prerelease \
               --target "$GITHUB_SHA" \
-              --title "SNMessenger diagnostics probe" \
-              --notes "Direct rootless diagnostic package for phone installation."
+              --title "$title" \
+              --notes "$notes"
           fi
 
           gh release upload snmessenger-probe SNMessenger-latest-rootless.deb --clobber
           gh release edit snmessenger-probe \
-            --title "SNMessenger ${version} diagnostics probe" \
-            --notes "Built from ${GITHUB_SHA}. Download SNMessenger-latest-rootless.deb directly in Safari."
+            --title "$title" \
+            --notes "Built from ${GITHUB_SHA}. ${notes}"

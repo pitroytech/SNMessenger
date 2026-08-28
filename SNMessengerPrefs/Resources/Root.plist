@@ -275,54 +275,6 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
-			<key>footerText</key>
-			<string>Open Messenger and visit the affected screen before refreshing the report.</string>
-			<key>label</key>
-			<string>Diagnostics</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSTitleValueCell</string>
-			<key>get</key>
-			<string>statusValue:</string>
-			<key>label</key>
-			<string>Last Report</string>
-		</dict>
-		<dict>
-			<key>action</key>
-			<string>refreshReport</string>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>label</key>
-			<string>Refresh Report</string>
-		</dict>
-		<dict>
-			<key>action</key>
-			<string>copyReport</string>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>label</key>
-			<string>Copy Report</string>
-		</dict>
-		<dict>
-			<key>action</key>
-			<string>shareReport</string>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>label</key>
-			<string>Share Report File</string>
-		</dict>
-		<dict>
-			<key>action</key>
-			<string>clearReport</string>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>label</key>
-			<string>Clear Report</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Reset</string>
 		</dict>

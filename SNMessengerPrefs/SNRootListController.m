@@ -9,10 +9,12 @@
 
 extern char **environ;
 
+#if SN_DIAGNOSTICS
 static NSString * const SNDiagnosticsDomain = @"com.nguyenasang.snmessenger.diagnostics";
 static NSString * const SNDiagnosticsReportKey = @"latestReport";
 static NSString * const SNDiagnosticsUpdatedKey = @"lastUpdated";
 static CFStringRef const SNDiagnosticsRunNotification = CFSTR("com.nguyenasang.snmessenger/RunDiagnostics");
+#endif
 static NSString * const SNSettingsDomain = @"com.nguyenasang.snmessenger";
 static CFStringRef const SNSettingsChangedNotification = CFSTR("SNMessenger/prefChanged");
 
@@ -46,6 +48,12 @@ static NSArray<NSString *> *SNSettingKeys(void) {
     if (_specifiers == nil) {
         [self synchronizeSettingsTransport];
         _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+#if SN_DIAGNOSTICS
+        // Built here rather than kept in Root.plist so there is one plist and
+        // one flag: a release build has no rows to reach the report code, and
+        // no report code to reach.
+        _specifiers = [_specifiers arrayByAddingObjectsFromArray:[self diagnosticsSpecifiers]];
+#endif
     }
     return _specifiers;
 }
@@ -98,12 +106,6 @@ static NSArray<NSString *> *SNSettingKeys(void) {
     NSString *containerPath = [self messengerContainerPath];
     if (containerPath.length == 0) return nil;
     return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessenger.plist"];
-}
-
-- (NSString *)messengerReportPath {
-    NSString *containerPath = [self messengerContainerPath];
-    if (containerPath.length == 0) return nil;
-    return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessengerDiagnostics.txt"];
 }
 
 - (BOOL)writeLegacySettingsValue:(id)value key:(NSString *)key {
@@ -175,6 +177,60 @@ static NSArray<NSString *> *SNSettingKeys(void) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
+}
+
+#if SN_DIAGNOSTICS
+
+#pragma mark - Diagnostics (probe builds only)
+
+- (NSArray *)diagnosticsSpecifiers {
+    NSMutableArray *specifiers = [NSMutableArray array];
+
+    PSSpecifier *group = [PSSpecifier preferenceSpecifierNamed:@"Diagnostics"
+                                                        target:self
+                                                           set:NULL
+                                                           get:NULL
+                                                        detail:nil
+                                                          cell:PSGroupCell
+                                                          edit:nil];
+    [group setProperty:@"Open Messenger and visit the affected screen before refreshing the report."
+                forKey:@"footerText"];
+    [specifiers addObject:group];
+
+    PSSpecifier *status = [PSSpecifier preferenceSpecifierNamed:@"Last Report"
+                                                         target:self
+                                                            set:NULL
+                                                            get:@selector(statusValue:)
+                                                         detail:nil
+                                                           cell:PSTitleValueCell
+                                                           edit:nil];
+    [specifiers addObject:status];
+
+    NSArray *buttons = @[
+        @[@"Refresh Report", NSStringFromSelector(@selector(refreshReport))],
+        @[@"Copy Report", NSStringFromSelector(@selector(copyReport))],
+        @[@"Share Report File", NSStringFromSelector(@selector(shareReport))],
+        @[@"Clear Report", NSStringFromSelector(@selector(clearReport))],
+    ];
+    for (NSArray *button in buttons) {
+        PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:button[0]
+                                                                target:self
+                                                                   set:NULL
+                                                                   get:NULL
+                                                                detail:nil
+                                                                  cell:PSButtonCell
+                                                                  edit:nil];
+        specifier->action = NSSelectorFromString(button[1]);
+        [specifiers addObject:specifier];
+    }
+
+    return specifiers;
+}
+
+- (NSString *)messengerReportPath {
+    NSString *containerPath = [self messengerContainerPath];
+    if (containerPath.length == 0) return nil;
+    return [[containerPath stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"SNMessengerDiagnostics.txt"];
 }
 
 - (NSDictionary<NSString *, id> *)reportAndSource {
@@ -266,6 +322,8 @@ static NSArray<NSString *> *SNSettingKeys(void) {
     if (path.length > 0) [NSFileManager.defaultManager removeItemAtPath:path error:nil];
     [self reloadStatus];
 }
+
+#endif
 
 - (void)resetSettings {
     UIAlertController *alert = [UIAlertController

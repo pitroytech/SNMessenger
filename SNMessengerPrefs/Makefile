@@ -17,4 +17,11 @@ SNMessengerPrefs_EXTRA_FRAMEWORKS = Cephei
 SNMessengerPrefs_INSTALL_PATH = /Library/PreferenceBundles
 SNMessengerPrefs_CFLAGS = -fobjc-arc
 
+# Matches the tweak: the diagnostics rows exist only in a probe build, so a
+# release page has no Refresh/Copy/Share/Clear group and no way to reach code
+# that reads a report nothing is writing.
+ifeq ($(DIAGNOSTICS), 1)
+    SNMessengerPrefs_CFLAGS += -DSN_DIAGNOSTICS=1
+endif
+
 include $(THEOS_MAKE_PATH)/bundle.mk
