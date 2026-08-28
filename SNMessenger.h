@@ -108,6 +108,12 @@ typedef struct {
 @interface MDSNavigationController (SNMessenger)
 @property (nonatomic, retain) UIBarButtonItem *eyeItem;
 @property (nonatomic, retain) UIBarButtonItem *settingsItem;
+// Declared here for the same reason as the two above: Logos adds these at
+// runtime, but the compiler still has to be told they exist before the code
+// that uses them.
+@property (nonatomic, retain) UILongPressGestureRecognizer *settingsPressRecognizer;
+- (void)openSettings;
+- (void)handleSettingsLongPress:(UILongPressGestureRecognizer *)recognizer;
 @end
 
 @interface MSGNavigationCoordinator_LSNavigationCoordinatorProxy (SNMessenger)
