@@ -435,12 +435,21 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
 /// The controller an alert can safely be presented from when Messenger's own
 /// presenter is not ready.
 static UIViewController *SNKeyWindowRootViewController(void) {
-    for (UIWindow *window in UIApplication.sharedApplication.windows) {
+    // UIApplication.windows is deprecated and the build treats warnings as
+    // errors. The scene-based replacement would need a scene to start from,
+    // and this runs from a C validator with no view in hand, so the flat list
+    // is still the right lookup — just silenced narrowly.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    NSArray<UIWindow *> *windows = UIApplication.sharedApplication.windows;
+#pragma clang diagnostic pop
+
+    for (UIWindow *window in windows) {
         if (window.isKeyWindow && window.rootViewController != nil) {
             return window.rootViewController;
         }
     }
-    return UIApplication.sharedApplication.windows.firstObject.rootViewController;
+    return windows.firstObject.rootViewController;
 }
 
 
@@ -469,7 +478,10 @@ static UIViewController *SNKeyWindowRootViewController(void) {
             @"presentViewController:presentationStyle:animated:completion:");
         BOOL presented = NO;
 
-        if ([self respondsToSelector:nativePresent] && self.view.window != nil) {
+        // The proxy is not a view controller, so there is no view to check
+        // first; whether it can present is only learned by trying, hence the
+        // guard and the fallback below.
+        if ([self respondsToSelector:nativePresent]) {
             @try {
                 [self presentViewController:alert
                           presentationStyle:UIModalPresentationNone
