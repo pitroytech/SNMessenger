@@ -6,7 +6,7 @@ PACKAGE_VERSION = $(shell sed -n 's/^Version: //p' control)
 ARCHS = arm64 arm64e
 
 TWEAK_NAME = SNMessenger
-$(TWEAK_NAME)_FILES = $(wildcard SNMessenger.xm Settings/*.mm) Diagnostics/SNDiagnostics.mm
+$(TWEAK_NAME)_FILES = $(wildcard SNMessenger.xm Settings/*.mm) Diagnostics/SNDiagnostics.mm Diagnostics/SNSymbolScan.mm
 $(TWEAK_NAME)_CCFLAGS = -std=c++17
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -DSN_PROBE_VERSION=\"$(PACKAGE_VERSION)\"
 $(TWEAK_NAME)_EXTRA_FRAMEWORKS = Cephei

@@ -139,6 +139,18 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("WEXITSTATUS", controller)
         self.assertIn("WIFEXITED", controller)
 
+    def test_symbol_scan_looks_for_the_read_receipt_replacement(self):
+        header = read("Diagnostics/SNSymbolScan.h")
+        implementation = read("Diagnostics/SNSymbolScan.mm")
+        diagnostics = read("Diagnostics/SNDiagnostics.mm")
+        makefile = read("Makefile")
+        self.assertIn("SNSymbolsMatching", header)
+        self.assertIn("LC_SYMTAB", implementation)
+        self.assertIn("SEG_LINKEDIT", implementation)
+        self.assertIn("=== symbol scan ===", diagnostics)
+        self.assertIn("MarkThreadRead", diagnostics)
+        self.assertIn("Diagnostics/SNSymbolScan.mm", makefile)
+
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")
         self.assertIn("SNDiagnosticsRecordSymbol", hook_header)
@@ -152,16 +164,20 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertTrue({"applySettings", "refreshReport", "copyReport", "shareReport", "clearReport", "resetSettings"}.issubset(actions))
         preference_items = [item for item in root.get("items", []) if item.get("key")]
         preference_keys = {item["key"] for item in preference_items}
+        # The eight the owner asked to keep, all with a hook that is alive on 575.
         expected_keys = {
-            "noAds", "showTheEyeButton", "alwaysSendHdPhotos", "callConfirmation",
-            "keyboardStateAfterEnterChat", "disableTypingIndicator", "hideTypingIndicator",
-            "disableLongPressToChangeTheme", "disableReadReceipts", "hideNotifBadgesInChat",
-            "canSaveFriendsStories", "disableStoriesPreview", "disableStorySeenReceipts",
-            "extendStoryVideoUploadLength", "neverReplayStoryAfterReacting",
-            "hideMetaAIFloatingButton", "hideNotesRow", "hideStoriesTab",
-            "hideSearchBar", "hideSuggestionsInSearch",
+            "noAds", "disableReadReceipts", "hideMetaAIFloatingButton",
+            "callConfirmation", "disableTypingIndicator",
+            "disableLongPressToChangeTheme", "disableStorySeenReceipts",
+            "extendStoryVideoUploadLength",
         }
         self.assertTrue(expected_keys.issubset(preference_keys))
+        # Removed because the device proved they cannot work on this build:
+        # the thread row class is gone, there is no stories tab, the search
+        # field is ignored, and the eye button only shortcuts read receipts.
+        for dead in ("hideTypingIndicator", "hideStoriesTab", "hideSearchBar",
+                     "showTheEyeButton"):
+            self.assertNotIn(dead, preference_keys, dead)
         self.assertTrue(all(item.get("defaults") == "com.nguyenasang.snmessenger" for item in preference_items))
         self.assertTrue(all(item.get("PostNotification") == "SNMessenger/prefChanged" for item in preference_items))
         value_getters = {item.get("get") for item in root.get("items", []) if item.get("get")}

@@ -43,20 +43,6 @@
 			<string>Remove ads</string>
 		</dict>
 		<dict>
-			<key>PostNotification</key>
-			<string>SNMessenger/prefChanged</string>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.nguyenasang.snmessenger</string>
-			<key>key</key>
-			<string>showTheEyeButton</string>
-			<key>label</key>
-			<string>Show read-receipt button</string>
-		</dict>
-		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
@@ -131,36 +117,6 @@
 			<string>disableTypingIndicator</string>
 			<key>label</key>
 			<string>Hide my typing indicator</string>
-		</dict>
-		<dict>
-			<key>PostNotification</key>
-			<string>SNMessenger/prefChanged</string>
-			<key>cell</key>
-			<string>PSLinkListCell</string>
-			<key>default</key>
-			<string>NOWHERE</string>
-			<key>defaults</key>
-			<string>com.nguyenasang.snmessenger</string>
-			<key>detail</key>
-			<string>PSListItemsController</string>
-			<key>key</key>
-			<string>hideTypingIndicator</string>
-			<key>label</key>
-			<string>Hide others' typing indicator</string>
-			<key>validTitles</key>
-			<array>
-				<string>Nowhere</string>
-				<string>In chat only</string>
-				<string>In conversation list only</string>
-				<string>Everywhere</string>
-			</array>
-			<key>validValues</key>
-			<array>
-				<string>NOWHERE</string>
-				<string>IN_CHAT_ONLY</string>
-				<string>IN_THREAD_LIST_ONLY</string>
-				<string>BOTH</string>
-			</array>
 		</dict>
 		<dict>
 			<key>PostNotification</key>
@@ -314,35 +270,7 @@
 			<key>key</key>
 			<string>hideNotesRow</string>
 			<key>label</key>
-			<string>Hide notes row</string>
-		</dict>
-		<dict>
-			<key>PostNotification</key>
-			<string>SNMessenger/prefChanged</string>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.nguyenasang.snmessenger</string>
-			<key>key</key>
-			<string>hideStoriesTab</string>
-			<key>label</key>
-			<string>Hide stories tab</string>
-		</dict>
-		<dict>
-			<key>PostNotification</key>
-			<string>SNMessenger/prefChanged</string>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>com.nguyenasang.snmessenger</string>
-			<key>key</key>
-			<string>hideSearchBar</string>
-			<key>label</key>
-			<string>Hide search bar</string>
+			<string>Hide notes row and search bar</string>
 		</dict>
 		<dict>
 			<key>PostNotification</key>

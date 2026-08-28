@@ -1,8 +1,11 @@
 #import "SNDiagnostics.h"
+#import "SNSymbolScan.h"
 
 #import <Cephei/HBPreferences.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <mach-o/loader.h>
+#import <mach-o/nlist.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
 #import <unistd.h>
@@ -31,6 +34,7 @@ static NSMutableOrderedSet<NSString *> *gSNObservedControllers;
 static NSMutableArray<NSString *> *gSNSettingsEvents;
 static NSMutableDictionary<NSString *, NSString *> *gSNModelFields;
 static NSArray<NSString *> *gSNCandidates;
+static NSArray<NSString *> *gSNSymbolMatches;
 static BOOL gSNFlushScheduled;
 static NSString *gSNLastReason;
 static NSDateFormatter *gSNDateFormatter;
@@ -123,6 +127,30 @@ static NSDictionary<NSString *, id> *SNDefaultSettings(void) {
         @"hideSearchBar": @NO,
         @"hideSuggestionsInSearch": @NO,
     };
+}
+
+/// Looks for the C functions read receipts and typing depend on.
+///
+/// MCQSHIMTransportHybridThreadMarkThreadRead no longer resolves on 575, and
+/// read receipts are the feature this tweak exists for. Rather than guess a
+/// replacement name, the image's own symbol table is searched for anything
+/// that reads like one.
+static void SNRunSymbolScanLocked(void) {
+    NSArray<NSString *> *keywords = @[
+        @"MarkThreadRead", @"MarkRead", @"ReadReceipt", @"ThreadRead",
+        @"TypingIndicator",
+    ];
+    NSMutableArray<NSString *> *found = [NSMutableArray array];
+    for (NSString *image in @[@"LightSpeedEngine", @"LightSpeedCore"]) {
+        NSArray<NSString *> *matches = SNSymbolsMatching(image, keywords, 120);
+        [found addObject:[NSString stringWithFormat:@"[%@] %lu match(es)",
+            image, (unsigned long)matches.count]];
+        for (NSString *match in matches) {
+            [found addObject:[NSString stringWithFormat:@"  %@", match]];
+        }
+    }
+    if (found.count == 0) [found addObject:@"no images scanned"];
+    gSNSymbolMatches = [found copy];
 }
 
 static void SNRunCandidateScanLocked(void) {
@@ -283,6 +311,10 @@ static NSString *SNBuildReportLocked(void) {
             hit[@"detail"] ?: @"none"];
     }
 
+    [report appendString:@"\n=== symbol scan ===\n"];
+    if (gSNSymbolMatches.count == 0) [report appendString:@"Symbol scan pending\n"];
+    for (NSString *line in gSNSymbolMatches) [report appendFormat:@"%@\n", line];
+
     [report appendString:@"\n=== model fields ===\n"];
     if (gSNModelFields.count == 0) {
         [report appendString:@"No model has been dumped yet\n"];
@@ -331,6 +363,7 @@ static void SNScheduleFlushLocked(NSString *reason) {
 
 static void SNRunScanLocked(NSString *reason) {
     gSNCandidates = nil;
+    SNRunSymbolScanLocked();
     SNRunCandidateScanLocked();
     SNScheduleFlushLocked(reason);
 }
