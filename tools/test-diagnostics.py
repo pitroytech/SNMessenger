@@ -17,12 +17,15 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         tweak = read("SNMessenger.xm")
         header = read("Diagnostics/SNDiagnostics.h")
         implementation = read("Diagnostics/SNDiagnostics.mm")
+        probe_hooks = read("Diagnostics/SNDiagnosticsHooks.xm")
 
         self.assertIn('#import "Diagnostics/SNDiagnostics.h"', tweak)
         self.assertIn("SNDiagnosticsStart();", tweak)
         self.assertIn("SNDiagnosticsRecordSettingsEntry", tweak)
-        self.assertIn("%hook UIViewController", tweak)
-        self.assertIn("SNDiagnosticsRecordViewController(self)", tweak)
+        # The view-controller hook moved out of the tweak so a release build can
+        # leave it out by file; it is still part of a probe build.
+        self.assertIn("%hook UIViewController", probe_hooks)
+        self.assertIn("SNDiagnosticsRecordViewController(self)", probe_hooks)
         self.assertIn("void SNDiagnosticsStart(void)", header)
         self.assertIn("SNMessengerDiagnostics.txt", implementation)
         self.assertIn("HBPreferences", implementation)
@@ -318,10 +321,15 @@ class DiagnosticsReleaseTests(unittest.TestCase):
                          "SNDiagnosticsRecordSymbol", "SNDiagnosticsStart", "SNDiagnosticsFlush"):
             self.assertIn(f"#define {function}(...)", header, function)
 
-        # The one hook that exists only for the probe is not installed at all.
-        self.assertIn("#if SN_DIAGNOSTICS\n\n// Only the probe ever wanted this", tweak)
-        matrix_hook = tweak.index("%hook UIViewController")
-        self.assertLess(tweak.index("#if SN_DIAGNOSTICS\n\n// Only the probe"), matrix_hook)
+        # The one hook that exists only for the probe has to be excluded by
+        # file, not by #if. Logos runs before the C preprocessor, so a guarded
+        # %hook is still registered and still called from %init while its body
+        # is preprocessed away — which is a link error, not a disabled hook.
+        # That mistake cost a build; this is the test that would have caught it.
+        self.assertNotIn("%hook UIViewController", tweak)
+        probe_hooks = read("Diagnostics/SNDiagnosticsHooks.xm")
+        self.assertIn("%hook UIViewController", probe_hooks)
+        self.assertIn("Diagnostics/SNDiagnosticsHooks.xm", diagnostics_line)
 
     def test_ad_removal_does_no_work_when_it_is_switched_off(self):
         """Both ad paths run on every inbox and story refresh, so the disabled

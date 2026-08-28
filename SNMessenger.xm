@@ -980,22 +980,13 @@ static BOOL hideTabBar = NO;
 
 %end
 
-#if SN_DIAGNOSTICS
-
-// Only the probe ever wanted this. Swizzling -viewDidAppear: on every view
-// controller in Messenger is the single most expensive thing the tweak has ever
-// done, and it buys the user nothing, so a release build does not install it at
-// all rather than installing a hook that immediately calls through.
-%hook UIViewController
-
-- (void)viewDidAppear:(BOOL)animated {
-    %orig;
-    SNDiagnosticsRecordViewController(self);
-}
-
-%end
-
-#endif
+// The -viewDidAppear: hook that used to sit here lives in
+// Diagnostics/SNDiagnosticsHooks.xm now. Swizzling every UIViewController in
+// Messenger is the most expensive thing this tweak has ever done and it buys
+// the user nothing, so a release build must not install it — and a #if here
+// cannot achieve that, because Logos runs before the C preprocessor and would
+// still register a hook whose body the compiler never sees. Only leaving the
+// file out of the build removes it.
 
 %ctor {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)reloadPrefs, CFSTR(PREF_CHANGED_NOTIF), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);

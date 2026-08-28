@@ -15,8 +15,13 @@ $(TWEAK_NAME)_EXTRA_FRAMEWORKS = Cephei
 # controller, formats a string on per-row hot paths and rewrites its report
 # file whenever anything moves — a cost worth paying while investigating and
 # not worth paying all day. Build with DIAGNOSTICS=1 to get it back.
+#
+# SNDiagnosticsHooks.xm carries the probe's own %hook and has to be excluded by
+# file rather than by #if: Logos runs before the C preprocessor, so a guarded
+# %hook is still registered and still called from %init while its body is
+# preprocessed away.
 ifeq ($(DIAGNOSTICS), 1)
-    $(TWEAK_NAME)_FILES += Diagnostics/SNDiagnostics.mm Diagnostics/SNSymbolScan.mm
+    $(TWEAK_NAME)_FILES += Diagnostics/SNDiagnostics.mm Diagnostics/SNSymbolScan.mm Diagnostics/SNDiagnosticsHooks.xm
     $(TWEAK_NAME)_CFLAGS += -DSN_DIAGNOSTICS=1
 endif
 
