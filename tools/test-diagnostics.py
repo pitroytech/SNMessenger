@@ -91,6 +91,18 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertNotIn('MSGModel|setValueForField:value:', implementation)
         self.assertIn('MSGCQLResultSetList|+newWithIdentifier:', implementation)
 
+    def test_call_confirmation_cannot_crash_on_a_moved_model_layout(self):
+        tweak = read("SNMessenger.xm")
+        body = tweak.split("id LSRTCValidateCallIntentForKey(", 1)[1].split("\n}", 1)[0]
+        # The enabled check has to come before anything is read out of params:
+        # it is an MSGModel, whose fields are addressed by offset, and reaching
+        # through a moved layout is what took the app down on the call button.
+        self.assertLess(body.index("callConfirmation"), body.index("callIntent"))
+        self.assertIn("respondsToSelector:@selector(callIntent)", body)
+        self.assertIn("respondsToSelector:@selector(navigationCoordinator)", body)
+        self.assertIn("canPresent", body)
+        self.assertIn("NSSelectorFromString(", body)
+
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")
         self.assertIn("SNDiagnosticsRecordSymbol", hook_header)

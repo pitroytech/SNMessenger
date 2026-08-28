@@ -427,13 +427,45 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
 
 id (* _LSRTCValidateCallIntentForKey)(NSString *, id, LSRTCCallIntentValidatorParams *);
 id LSRTCValidateCallIntentForKey(NSString *key, id context, LSRTCCallIntentValidatorParams *params) {
-    SNDiagnosticsRecordFeatureHit(@"callConfirmation", params, [NSString stringWithFormat:@"enabled=%d key=%@", callConfirmation, key ?: @"(nil)"]);
-    MSGNavigationCoordinator_LSNavigationCoordinatorProxy *navigationCoordinator = [[params callIntent] navigationCoordinator];
+    // The original reached through the params for a navigation coordinator
+    // before it had decided whether the feature was even on, so every call
+    // intent Messenger validated went through that chain. Params is an
+    // MSGModel, which reads its fields by memory offset, and a layout that has
+    // moved returns something that is not a coordinator — the crash on tapping
+    // the call button. Nothing is touched until the feature asks for it.
     if (!callConfirmation || ![key isEqual:@"rtc_integrity_joiner_transparency"]) {
         return _LSRTCValidateCallIntentForKey(key, context, params);
     }
 
-    [navigationCoordinator presentAlertWithCompletion:^(BOOL confirmed) {
+    id callIntent = [params respondsToSelector:@selector(callIntent)]
+        ? [params callIntent] : nil;
+    id coordinator = [callIntent respondsToSelector:@selector(navigationCoordinator)]
+        ? [callIntent navigationCoordinator] : nil;
+    // Built from a string rather than @selector: the presentation method is
+    // Messenger's own and is not declared anywhere here, so naming it this way
+    // keeps the check honest instead of relying on a declaration that may not
+    // survive the next version.
+    SEL present = NSSelectorFromString(
+        @"presentViewController:presentationStyle:animated:completion:");
+    BOOL canPresent = coordinator != nil &&
+        [coordinator respondsToSelector:@selector(presentAlertWithCompletion:)] &&
+        [coordinator respondsToSelector:present];
+
+    SNDiagnosticsRecordFeatureHit(@"callConfirmation", params, [NSString stringWithFormat:
+        @"enabled=1 key=%@ callIntent=%@ coordinator=%@ canPresent=%d",
+        key ?: @"(nil)",
+        callIntent ? NSStringFromClass([callIntent class]) : @"(nil)",
+        coordinator ? NSStringFromClass([coordinator class]) : @"(nil)",
+        canPresent]);
+
+    // Fail closed: without a coordinator that can present, the call goes
+    // through unconfirmed rather than taking the app down. The line above says
+    // which step was missing.
+    if (!canPresent) {
+        return _LSRTCValidateCallIntentForKey(key, context, params);
+    }
+
+    [coordinator presentAlertWithCompletion:^(BOOL confirmed) {
         if (confirmed) _LSRTCValidateCallIntentForKey(key, context, params);
     }];
 
