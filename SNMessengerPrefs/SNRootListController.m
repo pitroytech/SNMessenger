@@ -138,13 +138,21 @@ static NSArray<NSString *> *SNSettingKeys(void) {
         NULL,
     };
     int spawnResult = posix_spawn(&child, killallPath, NULL, NULL, arguments, environ);
-    if (spawnResult == 0) {
-        dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-            int status = 0;
-            waitpid(child, &status, 0);
-        });
+    if (spawnResult != 0) {
+        return NO;
     }
-    return spawnResult == 0;
+
+    // Spawning killall succeeding says nothing about whether it killed
+    // anything: it can start fine and then be refused, and reporting on the
+    // spawn alone is why Apply claimed to have closed Messenger while
+    // Messenger stayed open. The child's own exit status is the answer, so it
+    // is waited for — briefly, and on this thread, because the answer is
+    // needed before the alert is shown.
+    int status = 0;
+    if (waitpid(child, &status, 0) != child) {
+        return NO;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 - (void)applySettings {

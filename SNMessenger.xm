@@ -2,6 +2,8 @@
 #import "Diagnostics/SNDiagnostics.h"
 #import "SNMessenger.h"
 
+#import <objc/runtime.h>
+
 #pragma mark - Global variables & functions
 
 static BOOL noAds;
@@ -683,6 +685,20 @@ static BOOL hideTabBar = NO;
     NSMutableArray *itemsInfo = [MSHookIvar<NSArray <MSGTabBarItemInfo *> *>(data, "_tabBarItemInfos") mutableCopy];
     NSArray *removedItems = @[hidePeopleTab ? @"tabbar-people" : @"", hideStoriesTab ? @"tabbar-stories" : @""];
 
+    // Removal matches on an accessibility identifier, and hiding the tab stops
+    // working the moment Messenger renames one. Every identifier this build
+    // actually offers is recorded, so the right string can be read off instead
+    // of guessed.
+    NSMutableArray<NSString *> *seen = [NSMutableArray array];
+    for (MSGTabBarItemInfo *info in itemsInfo) {
+        NSString *identifier = [[info props] accessibilityIdentifierText];
+        [seen addObject:identifier ?: @"(nil)"];
+    }
+    SNDiagnosticsRecordFeatureHit(@"hideStoriesTab", data, [NSString stringWithFormat:
+        @"identifiers=[%@] looking for=[%@]",
+        [seen componentsJoinedByString:@", "],
+        [removedItems componentsJoinedByString:@", "]]);
+
     for (MSGTabBarItemInfo *info in [itemsInfo reverseObjectEnumerator]) {
         if ([removedItems containsObject:[[info props] accessibilityIdentifierText]]) {
             if ([itemsInfo count] > 2) {
@@ -811,10 +827,27 @@ static BOOL hideTabBar = NO;
 %hook LSStoryOverlayProfileView
 
 - (void)_handleOverflowMenuButton:(UIButton *)button {
-    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:@"enabled=%d", canSaveFriendsStories]);
+    // Both ivars were read before the feature was consulted, so opening the
+    // story menu went through them whether or not the setting was on, and a
+    // renamed ivar took the app down on a button that should have done
+    // nothing. Nothing is read until the feature asks, and the ivars are
+    // confirmed to exist on this build before they are touched.
+    BOOL hasActions = class_getInstanceVariable([self class], "_overflowActions") != NULL;
+    BOOL hasAuthor = class_getInstanceVariable([self class], "_storyAuthorId") != NULL;
+    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:
+        @"enabled=%d overflowActionsIvar=%d storyAuthorIdIvar=%d",
+        canSaveFriendsStories, hasActions, hasAuthor]);
+
+    if (!canSaveFriendsStories || !hasActions || !hasAuthor) {
+        %orig;
+        return;
+    }
+
     NSMutableArray *actions = [MSHookIvar<NSArray *>(self, "_overflowActions") mutableCopy];
     NSString *storyAuthorId = MSHookIvar<NSString *>(self, "_storyAuthorId");
-    if (canSaveFriendsStories && ![storyAuthorId isEqual:[[%c(FBAnalytics) sharedAnalytics] userFBID]] && [actions count] == 3) {
+    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:
+        @"enabled=1 actionCount=%lu expected=3", (unsigned long)actions.count]);
+    if (![storyAuthorId isEqual:[[%c(FBAnalytics) sharedAnalytics] userFBID]] && [actions count] == 3) {
         actionTypeSaveClass = MSGModelDefineClass(&actionTypeSaveInfo);
         MSGStoryViewerOverflowMenuActionTypeSave *actionTypeSave = nil;
         MSGStoryOverlayProfileViewActionStandard *actionStandard = nil;

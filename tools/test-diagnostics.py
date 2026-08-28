@@ -119,6 +119,26 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertLess(before, tweak.index('setValueForField:@"shouldShowSearch"'))
         self.assertLess(tweak.index('setValueForField:@"shouldShowInboxUnit"'), after)
 
+    def test_list_rows_have_a_detail_controller(self):
+        root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())
+        # A PSLinkListCell without a detail controller pushes an empty screen.
+        for item in root.get("items", []):
+            if item.get("cell") == "PSLinkListCell":
+                self.assertEqual("PSListItemsController", item.get("detail"), item.get("key"))
+
+    def test_story_menu_and_apply_button_fail_safely(self):
+        tweak = read("SNMessenger.xm")
+        controller = read("SNMessengerPrefs/SNRootListController.m")
+        body = tweak.split("- (void)_handleOverflowMenuButton:", 1)[1].split("%end", 1)[0]
+        # The ivars must be confirmed before they are read, and the feature
+        # must be consulted first, or the story menu takes the app down.
+        self.assertIn('class_getInstanceVariable', body)
+        self.assertLess(body.index("canSaveFriendsStories"), body.index("MSHookIvar"))
+        # Apply reported success from the spawn alone, which says nothing about
+        # whether Messenger was actually closed.
+        self.assertIn("WEXITSTATUS", controller)
+        self.assertIn("WIFEXITED", controller)
+
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")
         self.assertIn("SNDiagnosticsRecordSymbol", hook_header)
