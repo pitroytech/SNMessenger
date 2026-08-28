@@ -110,7 +110,14 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("SNDiagnosticsRecordModelFields", header)
         self.assertIn("=== model fields ===", implementation)
         self.assertIn("debugMSGModel", implementation)
-        self.assertIn('SNDiagnosticsRecordModelFields(@"MSGThreadListConfig", config)', tweak)
+        # Both sides of the write, so a write that never landed is told apart
+        # from a field whose meaning changed under the same name.
+        self.assertIn('SNDiagnosticsRecordModelFields(@"MSGThreadListConfig before", config)', tweak)
+        self.assertIn('SNDiagnosticsRecordModelFields(@"MSGThreadListConfig after", config)', tweak)
+        before = tweak.index('MSGThreadListConfig before')
+        after = tweak.index('MSGThreadListConfig after')
+        self.assertLess(before, tweak.index('setValueForField:@"shouldShowSearch"'))
+        self.assertLess(tweak.index('setValueForField:@"shouldShowInboxUnit"'), after)
 
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")

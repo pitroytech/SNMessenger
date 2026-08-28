@@ -594,12 +594,15 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 - (instancetype)initWithViewRendererContext:(id)context mailbox:(id)mailbox config:(MSGThreadListConfig *)config {
     SNDiagnosticsRecordFeatureHit(@"hideNotesRow", config, [NSString stringWithFormat:@"enabled=%d", hideNotesRow]);
     SNDiagnosticsRecordFeatureHit(@"hideSearchBar", config, [NSString stringWithFormat:@"enabled=%d", hideSearchBar]);
-    // These two write fields by name, and the report says they behave as if
-    // swapped. Dumping the model names every field this build actually has, so
-    // the right one can be chosen from evidence instead of from its name.
-    SNDiagnosticsRecordModelFields(@"MSGThreadListConfig", config);
+    // The dump proved the names are intact: shouldShowSearch is field 7 and
+    // shouldShowInboxUnit is field 9, both Bool. What it could not show is
+    // whether the writes land, because it ran before them. Both sides are
+    // recorded now, so the next report separates a write that failed from a
+    // field whose meaning moved.
+    SNDiagnosticsRecordModelFields(@"MSGThreadListConfig before", config);
     [config setValueForField:@"shouldShowSearch", !hideSearchBar];
     [config setValueForField:@"shouldShowInboxUnit", !hideNotesRow];
+    SNDiagnosticsRecordModelFields(@"MSGThreadListConfig after", config);
     return %orig;
 }
 
