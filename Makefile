@@ -1,11 +1,14 @@
 INSTALL_TARGET_PROCESSES = Messenger
-PACKAGE_VERSION = 2.2.1
+
+# One source for the version: control. The probe compiles the same number into
+# its report, so a build can always be identified from the log alone.
+PACKAGE_VERSION = $(shell sed -n 's/^Version: //p' control)
 ARCHS = arm64 arm64e
 
 TWEAK_NAME = SNMessenger
 $(TWEAK_NAME)_FILES = $(wildcard SNMessenger.xm Settings/*.mm) Diagnostics/SNDiagnostics.mm
 $(TWEAK_NAME)_CCFLAGS = -std=c++17
-$(TWEAK_NAME)_CFLAGS = -fobjc-arc
+$(TWEAK_NAME)_CFLAGS = -fobjc-arc -DSN_PROBE_VERSION=\"$(PACKAGE_VERSION)\"
 $(TWEAK_NAME)_EXTRA_FRAMEWORKS = Cephei
 
 ifeq ($(SIDELOAD), 1)

@@ -143,9 +143,14 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         makefile = read("Makefile")
         info = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Info.plist").read_bytes())
         version = re.search(r"^Version:\s*(\S+)", control, re.MULTILINE).group(1)
-        package_version = re.search(r"^PACKAGE_VERSION\s*=\s*(\S+)", makefile, re.MULTILINE).group(1)
-        self.assertEqual("2.2.1", version)
-        self.assertEqual(version, package_version)
+        # The version is not pinned here. Pinning it means every release bump
+        # fails the check meant to guard the release; what matters is that the
+        # Makefile and the preference bundle both take their number from
+        # control, and that the probe compiles the same one into its report.
+        self.assertIn("PACKAGE_VERSION = $(shell sed -n 's/^Version: //p' control)", makefile)
+        self.assertIn("SN_PROBE_VERSION", makefile)
+        self.assertIn("SN_PROBE_VERSION", read("Diagnostics/SNDiagnostics.mm"))
+        self.assertNotIn('probeVersion: 2.2', read("Diagnostics/SNDiagnostics.mm"))
         self.assertEqual(version, info["CFBundleShortVersionString"])
         self.assertIn("Package: com.nguyenasang.snmessenger", control)
         self.assertIn("preferenceloader", control.lower())

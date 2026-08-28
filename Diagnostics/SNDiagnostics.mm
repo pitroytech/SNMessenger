@@ -11,6 +11,13 @@ NSString * const SNDiagnosticsReportKey = @"latestReport";
 NSString * const SNDiagnosticsUpdatedKey = @"lastUpdated";
 CFStringRef const SNDiagnosticsRunNotification = CFSTR("com.nguyenasang.snmessenger/RunDiagnostics");
 
+// Compiled in from control by the Makefile. A literal here would keep claiming
+// an old number after a release bump, and the one line in the report whose job
+// is to identify the build is the one line that must not lie.
+#ifndef SN_PROBE_VERSION
+#define SN_PROBE_VERSION "unknown"
+#endif
+
 static const NSUInteger kSNMaximumCandidateClasses = 160;
 static const NSUInteger kSNMaximumCandidateMethods = 480;
 static const NSUInteger kSNMaximumObservedControllers = 120;
@@ -217,7 +224,7 @@ static NSString *SNBuildReportLocked(void) {
     NSMutableString *report = [NSMutableString string];
 
     [report appendString:@"SNMessenger diagnostics\n"];
-    [report appendString:@"probeVersion: 2.2.1\n"];
+    [report appendFormat:@"probeVersion: %s\n", SN_PROBE_VERSION];
     [report appendFormat:@"timestamp: %@\n", SNDateString([NSDate date])];
     [report appendFormat:@"lastReason: %@\n", gSNLastReason ?: @"startup"];
     [report appendFormat:@"process: %@ pid=%d\n", NSProcessInfo.processInfo.processName, getpid()];
