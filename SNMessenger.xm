@@ -594,6 +594,10 @@ CGFloat MSGCSessionedMobileConfigGetDouble(id context, MSGCSessionedMobileConfig
 - (instancetype)initWithViewRendererContext:(id)context mailbox:(id)mailbox config:(MSGThreadListConfig *)config {
     SNDiagnosticsRecordFeatureHit(@"hideNotesRow", config, [NSString stringWithFormat:@"enabled=%d", hideNotesRow]);
     SNDiagnosticsRecordFeatureHit(@"hideSearchBar", config, [NSString stringWithFormat:@"enabled=%d", hideSearchBar]);
+    // These two write fields by name, and the report says they behave as if
+    // swapped. Dumping the model names every field this build actually has, so
+    // the right one can be chosen from evidence instead of from its name.
+    SNDiagnosticsRecordModelFields(@"MSGThreadListConfig", config);
     [config setValueForField:@"shouldShowSearch", !hideSearchBar];
     [config setValueForField:@"shouldShowInboxUnit", !hideNotesRow];
     return %orig;

@@ -3,6 +3,7 @@
 #import <Cephei/HBPreferences.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <objc/message.h>
 #import <objc/runtime.h>
 #import <unistd.h>
 
@@ -28,6 +29,7 @@ static NSMutableDictionary<NSString *, NSString *> *gSNSymbols;
 static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, id> *> *gSNFeatureHits;
 static NSMutableOrderedSet<NSString *> *gSNObservedControllers;
 static NSMutableArray<NSString *> *gSNSettingsEvents;
+static NSMutableDictionary<NSString *, NSString *> *gSNModelFields;
 static NSArray<NSString *> *gSNCandidates;
 static BOOL gSNFlushScheduled;
 static NSString *gSNLastReason;
@@ -281,6 +283,14 @@ static NSString *SNBuildReportLocked(void) {
             hit[@"detail"] ?: @"none"];
     }
 
+    [report appendString:@"\n=== model fields ===\n"];
+    if (gSNModelFields.count == 0) {
+        [report appendString:@"No model has been dumped yet\n"];
+    }
+    for (NSString *label in [gSNModelFields.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        [report appendFormat:@"%@\n%@\n", label, gSNModelFields[label]];
+    }
+
     [report appendString:@"\n=== observed view controllers ===\n"];
     if (gSNObservedControllers.count == 0) [report appendString:@"No view controller observed yet\n"];
     for (NSString *controller in gSNObservedControllers) [report appendFormat:@"%@\n", controller];
@@ -340,6 +350,7 @@ void SNDiagnosticsStart(void) {
         gSNFeatureHits = [NSMutableDictionary dictionary];
         gSNObservedControllers = [NSMutableOrderedSet orderedSet];
         gSNSettingsEvents = [NSMutableArray array];
+        gSNModelFields = [NSMutableDictionary dictionary];
         gSNDateFormatter = [[NSDateFormatter alloc] init];
         gSNDateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
         gSNDateFormatter.dateFormat = @"yyyy-MM-dd HH:mm:ss Z";
@@ -402,6 +413,46 @@ void SNDiagnosticsRecordViewController(UIViewController *controller) {
             [gSNObservedControllers addObject:line];
             SNScheduleFlushLocked(@"view controller appeared");
         }
+    });
+}
+
+/// Records every field an MSGModel declares: index, name, type and value.
+///
+/// A field is written by name, and the name is resolved to an index by walking
+/// a struct whose layout is Messenger's, not ours. When two settings appear to
+/// swap — hiding the notes row hides the search bar instead — the question is
+/// which index each name really resolves to on this build, and only the model
+/// itself can answer it. Dumped once per model class, since the layout does not
+/// change while the app runs.
+void SNDiagnosticsRecordModelFields(NSString *label, id model) {
+    if (gSNDiagnosticsQueue == nil || model == nil || label.length == 0) return;
+    SEL dump = NSSelectorFromString(@"debugMSGModel");
+    if (![model respondsToSelector:dump]) return;
+
+    NSString *key = [NSString stringWithFormat:@"%@ (%@)", label, NSStringFromClass([model class])];
+    NSDictionary *fields = nil;
+    @try {
+        fields = ((id (*)(id, SEL))objc_msgSend)(model, dump);
+    } @catch (NSException *exception) {
+        fields = nil;
+    }
+
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    for (NSString *entry in [fields.allKeys sortedArrayUsingSelector:@selector(localizedStandardCompare:)]) {
+        NSDictionary *field = fields[entry];
+        [lines addObject:[NSString stringWithFormat:@"  [%@] %@ = %@  %@",
+            field[@"index"] ?: @"?",
+            field[@"name"] ?: @"?",
+            field[@"value"] ?: @"(nil)",
+            field[@"type"] ?: @"?"]];
+    }
+    if (lines.count == 0) [lines addObject:@"  (no fields returned)"];
+    NSString *text = [lines componentsJoinedByString:@"\n"];
+
+    dispatch_async(gSNDiagnosticsQueue, ^{
+        if (gSNModelFields[key] != nil) return;
+        gSNModelFields[key] = text;
+        SNScheduleFlushLocked([NSString stringWithFormat:@"model fields %@", label]);
     });
 }
 

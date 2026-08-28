@@ -103,6 +103,15 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         self.assertIn("canPresent", body)
         self.assertIn("NSSelectorFromString(", body)
 
+    def test_model_fields_are_dumped_for_the_swapped_thread_list_config(self):
+        implementation = read("Diagnostics/SNDiagnostics.mm")
+        header = read("Diagnostics/SNDiagnostics.h")
+        tweak = read("SNMessenger.xm")
+        self.assertIn("SNDiagnosticsRecordModelFields", header)
+        self.assertIn("=== model fields ===", implementation)
+        self.assertIn("debugMSGModel", implementation)
+        self.assertIn('SNDiagnosticsRecordModelFields(@"MSGThreadListConfig", config)', tweak)
+
     def test_c_symbol_resolution_is_reported(self):
         hook_header = read("SNMessenger.h")
         self.assertIn("SNDiagnosticsRecordSymbol", hook_header)

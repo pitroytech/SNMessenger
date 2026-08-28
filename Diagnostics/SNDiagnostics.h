@@ -14,5 +14,6 @@ void SNDiagnosticsRecordSymbol(NSString *framework, const char *symbol, BOOL fou
 void SNDiagnosticsRecordSettingsEntry(NSString *source, id controller, NSInteger itemCount);
 void SNDiagnosticsRecordViewController(UIViewController *controller);
 void SNDiagnosticsRecordFeatureHit(NSString *feature, id _Nullable target, NSString * _Nullable detail);
+void SNDiagnosticsRecordModelFields(NSString *label, id _Nullable model);
 
 NS_ASSUME_NONNULL_END
