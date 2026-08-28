@@ -432,6 +432,18 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
 
 #pragma mark - Audio / Video call confirmation
 
+/// The controller an alert can safely be presented from when Messenger's own
+/// presenter is not ready.
+static UIViewController *SNKeyWindowRootViewController(void) {
+    for (UIWindow *window in UIApplication.sharedApplication.windows) {
+        if (window.isKeyWindow && window.rootViewController != nil) {
+            return window.rootViewController;
+        }
+    }
+    return UIApplication.sharedApplication.windows.firstObject.rootViewController;
+}
+
+
 %hook MSGNavigationCoordinator_LSNavigationCoordinatorProxy
 
 %new(v@:@?)
@@ -445,7 +457,50 @@ Class MSGModelDefineClass(MSGModelInfo *info) {
         completion(NO);
     }]];
 
-    [self presentViewController:alert presentationStyle:UIModalPresentationNone animated:YES completion:nil];
+    // The validator is a C function LightSpeed calls from its own queue, and
+    // UIKit presentation is main-thread only — which is why the first call
+    // after a fresh launch went down while a later one, landing on the main
+    // thread by luck, put the alert up. The presentation is moved onto the
+    // main queue, and Messenger's own presenter is tried first with the key
+    // window's root controller behind it, because responding to the selector
+    // is not the same as being ready to present.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        SEL nativePresent = NSSelectorFromString(
+            @"presentViewController:presentationStyle:animated:completion:");
+        BOOL presented = NO;
+
+        if ([self respondsToSelector:nativePresent] && self.view.window != nil) {
+            @try {
+                [self presentViewController:alert
+                          presentationStyle:UIModalPresentationNone
+                                   animated:YES
+                                 completion:nil];
+                presented = YES;
+            } @catch (NSException *exception) {
+                presented = NO;
+            }
+        }
+
+        if (!presented) {
+            UIViewController *root = SNKeyWindowRootViewController();
+            while (root.presentedViewController != nil) {
+                root = root.presentedViewController;
+            }
+            @try {
+                [root presentViewController:alert animated:YES completion:nil];
+                presented = root != nil;
+            } @catch (NSException *exception) {
+                presented = NO;
+            }
+        }
+
+        SNDiagnosticsRecordFeatureHit(@"callConfirmation", self, [NSString stringWithFormat:
+            @"alert presented=%d mainThread=1", presented]);
+
+        // Never leave the call intent hanging: if no alert could be shown the
+        // call proceeds rather than silently doing nothing.
+        if (!presented) completion(YES);
+    });
 }
 
 %end

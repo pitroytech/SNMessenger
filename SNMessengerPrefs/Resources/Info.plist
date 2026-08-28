@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>SNMessenger</string>
+	<string>SNMessenger Lite</string>
 	<key>CFBundleExecutable</key>
 	<string>SNMessengerPrefs</string>
 	<key>CFBundleIdentifier</key>
@@ -22,7 +22,7 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1</string>
+	<string>3.2</string>
 	<key>CFBundleVersion</key>
 	<string>2.2.1</string>
 	<key>MinimumOSVersion</key>

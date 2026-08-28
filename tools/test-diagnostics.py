@@ -161,6 +161,27 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         # report shows firing on every launch.
         self.assertIn("[self.navigationBar addGestureRecognizer:press]", tweak)
 
+    def test_call_alert_is_presented_on_the_main_thread(self):
+        tweak = read("SNMessenger.xm")
+        body = tweak.split("- (void)presentAlertWithCompletion:", 1)[1].split("%end", 1)[0]
+        # LightSpeed calls the validator from its own queue, and UIKit
+        # presentation is main-thread only — that race is the crash on the
+        # first call after a fresh launch.
+        self.assertIn("dispatch_get_main_queue()", body)
+        self.assertIn("SNKeyWindowRootViewController", body)
+        # A call must never be left hanging because no alert could be shown.
+        self.assertIn("if (!presented) completion(YES);", body)
+
+    def test_package_and_settings_are_named_lite(self):
+        control = read("control")
+        root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())
+        loader = plistlib.loads((ROOT / "layout/Library/PreferenceLoader/Preferences/SNMessengerPrefs.plist").read_bytes())
+        self.assertIn("Name: SNMessenger Lite", control)
+        self.assertEqual("SNMessenger Lite", root.get("title"))
+        self.assertEqual("SNMessenger Lite", loader["entry"]["label"])
+        # The identifier stays so an existing install upgrades in place.
+        self.assertIn("Package: com.nguyenasang.snmessenger", control)
+
     def test_symbol_scan_looks_for_the_read_receipt_replacement(self):
         header = read("Diagnostics/SNSymbolScan.h")
         implementation = read("Diagnostics/SNSymbolScan.mm")

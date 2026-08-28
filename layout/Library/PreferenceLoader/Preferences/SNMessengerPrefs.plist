@@ -2,18 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>entry</key>
-    <dict>
-        <key>bundle</key>
-        <string>SNMessengerPrefs</string>
-        <key>cell</key>
-        <string>PSLinkCell</string>
-        <key>detail</key>
-        <string>SNRootListController</string>
-        <key>isController</key>
-        <true/>
-        <key>label</key>
-        <string>SNMessenger</string>
-    </dict>
+	<key>entry</key>
+	<dict>
+		<key>bundle</key>
+		<string>SNMessengerPrefs</string>
+		<key>cell</key>
+		<string>PSLinkCell</string>
+		<key>detail</key>
+		<string>SNRootListController</string>
+		<key>isController</key>
+		<true/>
+		<key>label</key>
+		<string>SNMessenger Lite</string>
+	</dict>
 </dict>
 </plist>
