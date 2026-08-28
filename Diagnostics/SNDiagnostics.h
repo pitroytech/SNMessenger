@@ -11,7 +11,7 @@ FOUNDATION_EXPORT CFStringRef const SNDiagnosticsRunNotification;
 void SNDiagnosticsStart(void);
 void SNDiagnosticsFlush(NSString *reason);
 void SNDiagnosticsRecordSymbol(NSString *framework, const char *symbol, BOOL found, const void *address);
-void SNDiagnosticsRecordSettingsEntry(NSString *source, id controller, NSInteger itemCount);
+void SNDiagnosticsRecordSettingsEntry(NSString *source, id _Nullable controller, NSInteger itemCount);
 void SNDiagnosticsRecordViewController(UIViewController *controller);
 void SNDiagnosticsRecordFeatureHit(NSString *feature, id _Nullable target, NSString * _Nullable detail);
 void SNDiagnosticsRecordModelFields(NSString *label, id _Nullable model);
