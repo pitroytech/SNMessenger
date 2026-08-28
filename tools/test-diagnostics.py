@@ -172,6 +172,15 @@ class DiagnosticsReleaseTests(unittest.TestCase):
         # A call must never be left hanging because no alert could be shown.
         self.assertIn("if (!presented) completion(YES);", body)
 
+    def test_inbox_class_is_resolved_by_its_swift_name(self):
+        tweak = read("SNMessenger.xm")
+        # Messenger moved the inbox controller into a Swift module, so the bare
+        # name resolves to nil and every isKindOfClass: against it is false —
+        # which is why the eye button and the long press never installed.
+        self.assertIn("LightSpeedInbox.MSGInboxViewController", tweak)
+        self.assertIn("SNInboxViewControllerClass", tweak)
+        self.assertNotIn("%c(MSGInboxViewController)", tweak)
+
     def test_package_and_settings_are_named_lite(self):
         control = read("control")
         root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())

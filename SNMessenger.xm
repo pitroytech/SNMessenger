@@ -142,6 +142,30 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
     return imageView;
 }
 
+/// The inbox controller class, whatever it is called on this build.
+///
+/// The report names it LightSpeedInbox.MSGInboxViewController: Messenger moved
+/// it into a Swift module, so looking up the bare name returns nil and every
+/// isKindOfClass: against it is silently false. That is why neither the eye
+/// button nor the long-press gesture was ever installed.
+static Class SNInboxViewControllerClass(void) {
+    static Class resolved = Nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        for (NSString *name in @[@"LightSpeedInbox.MSGInboxViewController",
+                                 @"MSGInboxViewController"]) {
+            resolved = objc_lookUpClass(name.UTF8String);
+            if (resolved != Nil) {
+                SNDiagnosticsRecordSettingsEntry(
+                    [@"inbox class resolved: " stringByAppendingString:name], nil, 1);
+                return;
+            }
+        }
+        SNDiagnosticsRecordSettingsEntry(@"inbox class NOT resolved", nil, 0);
+    });
+    return resolved;
+}
+
 #pragma mark - Settings page | Quick toggle to disable/enable read receipts
 
 %hook MSGCommunityListViewController
@@ -205,7 +229,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
     // launch. If the bar is missing the gesture is simply not installed, and
     // nothing else changes.
     if (!self.settingsPressRecognizer &&
-        [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGInboxViewController)] &&
+        [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:SNInboxViewControllerClass()] &&
         self.navigationBar != nil) {
         UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc]
             initWithTarget:self action:@selector(handleSettingsLongPress:)];
@@ -215,7 +239,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
         SNDiagnosticsRecordSettingsEntry(@"MDSNavigationController.longPressInstalled", self.navigationBar, 1);
     }
 
-    if (showTheEyeButton && !self.eyeItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGInboxViewController)]) {
+    if (showTheEyeButton && !self.eyeItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:SNInboxViewControllerClass()]) {
         UIButton *eyeButton = [[UIButton alloc] init];
         UIImage *eyeIcon = [MDSGeneratedImageViewCreate(disableReadReceipts ? @"EyeCross" : @"Eye", 10093, {24, 24}) image];
         [eyeButton setImage:eyeIcon forState:UIControlStateNormal];
