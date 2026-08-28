@@ -126,18 +126,40 @@ class DiagnosticsReleaseTests(unittest.TestCase):
             if item.get("cell") == "PSLinkListCell":
                 self.assertEqual("PSListItemsController", item.get("detail"), item.get("key"))
 
-    def test_story_menu_and_apply_button_fail_safely(self):
-        tweak = read("SNMessenger.xm")
+    def test_apply_button_reports_what_actually_happened(self):
         controller = read("SNMessengerPrefs/SNRootListController.m")
-        body = tweak.split("- (void)_handleOverflowMenuButton:", 1)[1].split("%end", 1)[0]
-        # The ivars must be confirmed before they are read, and the feature
-        # must be consulted first, or the story menu takes the app down.
-        self.assertIn('class_getInstanceVariable', body)
-        self.assertLess(body.index("canSaveFriendsStories"), body.index("MSHookIvar"))
         # Apply reported success from the spawn alone, which says nothing about
         # whether Messenger was actually closed.
         self.assertIn("WEXITSTATUS", controller)
         self.assertIn("WIFEXITED", controller)
+
+    def test_read_receipts_bind_to_the_symbols_the_scan_found(self):
+        tweak = read("SNMessenger.xm")
+        # The old transport symbol is gone from 575, so nothing may bind to it;
+        # naming it in a comment is fine and worth keeping as history.
+        self.assertNotIn('{"MCQSHIMTransportHybridThreadMarkThreadRead"', tweak)
+        self.assertIn('{"MCQTamTransportThreadMarkRead"', tweak)
+        self.assertIn("LSSendMessageReadReceipt", tweak)
+        # The local optimistic mark must NOT be blocked: the thread still has to
+        # stop showing as unread on this device.
+        self.assertNotIn('{"MCDMessagingOptimisticMarkThreadRead"', tweak)
+
+    def test_story_saving_is_gone_rather_than_left_crashing(self):
+        tweak = read("SNMessenger.xm")
+        root = plistlib.loads((ROOT / "SNMessengerPrefs/Resources/Root.plist").read_bytes())
+        self.assertNotIn("canSaveFriendsStories", tweak)
+        self.assertNotIn("LSStoryOverlayProfileView", tweak)
+        self.assertNotIn("canSaveFriendsStories",
+                         {i.get("key") for i in root.get("items", [])})
+
+    def test_long_press_on_the_inbox_bar_opens_settings(self):
+        tweak = read("SNMessenger.xm")
+        self.assertIn("settingsPressRecognizer", tweak)
+        self.assertIn("handleSettingsLongPress:", tweak)
+        self.assertIn("UIGestureRecognizerStateBegan", tweak)
+        # It is added to the navigation bar of the inbox, on the hook that the
+        # report shows firing on every launch.
+        self.assertIn("[self.navigationBar addGestureRecognizer:press]", tweak)
 
     def test_symbol_scan_looks_for_the_read_receipt_replacement(self):
         header = read("Diagnostics/SNSymbolScan.h")

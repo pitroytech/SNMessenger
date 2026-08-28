@@ -16,7 +16,6 @@ static BOOL disableTypingIndicator;
 static NSString *hideTypingIndicator;
 static BOOL hideNotifBadgesInChat;
 static NSString *keyboardStateAfterEnterChat;
-static BOOL canSaveFriendsStories;
 static BOOL disableStoriesPreview;
 static BOOL disableStorySeenReceipts;
 static BOOL extendStoryVideoUploadLength;
@@ -62,7 +61,6 @@ static void reloadPrefs() {
     hideNotifBadgesInChat             = [[settings objectForKey:@"hideNotifBadgesInChat"] ?: @(NO) boolValue];
     keyboardStateAfterEnterChat       = [ settings objectForKey:@"keyboardStateAfterEnterChat"] ?: @"ADAPTIVE";
 
-    canSaveFriendsStories             = [[settings objectForKey:@"canSaveFriendsStories"] ?: @(YES) boolValue];
     disableStoriesPreview             = [[settings objectForKey:@"disableStoriesPreview"] ?: @(NO) boolValue];
     disableStorySeenReceipts          = [[settings objectForKey:@"disableStorySeenReceipts"] ?: @(YES) boolValue];
     extendStoryVideoUploadLength      = [[settings objectForKey:@"extendStoryVideoUploadLength"] ?: @(YES) boolValue];
@@ -181,6 +179,7 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
 %hook MDSNavigationController
 %property (nonatomic, retain) UIBarButtonItem *eyeItem;
 %property (nonatomic, retain) UIBarButtonItem *settingsItem;
+%property (nonatomic, retain) UILongPressGestureRecognizer *settingsPressRecognizer;
 
 - (void)viewWillAppear:(BOOL)arg1 {
     SNDiagnosticsRecordSettingsEntry(@"MDSNavigationController.viewWillAppear", self, (NSInteger)self.viewControllers.count);
@@ -200,6 +199,22 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
         }
     }
 
+    // Long press the inbox title bar to open the tweak's settings. Reaching
+    // them through iOS Settings still works; this is the shortcut the owner
+    // asked for, added on the one hook the report shows firing on every
+    // launch. If the bar is missing the gesture is simply not installed, and
+    // nothing else changes.
+    if (!self.settingsPressRecognizer &&
+        [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGInboxViewController)] &&
+        self.navigationBar != nil) {
+        UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc]
+            initWithTarget:self action:@selector(handleSettingsLongPress:)];
+        press.minimumPressDuration = 0.6;
+        self.settingsPressRecognizer = press;
+        [self.navigationBar addGestureRecognizer:press];
+        SNDiagnosticsRecordSettingsEntry(@"MDSNavigationController.longPressInstalled", self.navigationBar, 1);
+    }
+
     if (showTheEyeButton && !self.eyeItem && [SNChildViewControllerForUserInterfaceStyle(self) isKindOfClass:%c(MSGInboxViewController)]) {
         UIButton *eyeButton = [[UIButton alloc] init];
         UIImage *eyeIcon = [MDSGeneratedImageViewCreate(disableReadReceipts ? @"EyeCross" : @"Eye", 10093, {24, 24}) image];
@@ -212,6 +227,14 @@ MDSGeneratedImageView *MDSGeneratedImageViewCreate(NSString *iconName, NSUIntege
     }
 
     %orig;
+}
+
+%new(v@:@)
+- (void)handleSettingsLongPress:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan) return;
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
+    SNDiagnosticsRecordSettingsEntry(@"MDSNavigationController.longPressFired", self, 1);
+    [self openSettings];
 }
 
 %new(v@:)
@@ -476,10 +499,39 @@ id LSRTCValidateCallIntentForKey(NSString *key, id context, LSRTCCallIntentValid
 
 #pragma mark - Disable read receipts
 
-void (* _MCQSHIMTransportHybridThreadMarkThreadRead)();
-void MCQSHIMTransportHybridThreadMarkThreadRead() {
-    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", nil, [NSString stringWithFormat:@"enabled=%d transport=MCQSHIM", disableReadReceipts]);
-    if (!disableReadReceipts) _MCQSHIMTransportHybridThreadMarkThreadRead();
+// The symbol scan named the replacements. MCQSHIMTransportHybridThreadMarkThreadRead
+// is gone from 575; what LightSpeedEngine exports now is a transport-level
+// MCQTamTransportThreadMarkRead and a client-level MCQTamClientThreadMarkRead,
+// alongside MCDMessagingOptimisticMarkThreadRead which is the *local* marking.
+//
+// Only the transport is blocked. That is what tells the other side the message
+// was read; the optimistic local mark is deliberately left alone, so the thread
+// still stops showing as bold on this device — the behaviour the owner asked
+// for. The client-level call is recorded but not blocked, so the next report
+// says whether the receipt also escapes through it.
+void (* _MCQTamTransportThreadMarkRead)();
+void MCQTamTransportThreadMarkRead() {
+    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", nil, [NSString stringWithFormat:
+        @"enabled=%d transport=MCQTamTransport blocked=%d",
+        disableReadReceipts, disableReadReceipts]);
+    if (!disableReadReceipts) _MCQTamTransportThreadMarkRead();
+}
+
+void (* _LSSendMessageReadReceipt)();
+void LSSendMessageReadReceipt() {
+    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", nil, [NSString stringWithFormat:
+        @"enabled=%d transport=LSSendMessageReadReceipt blocked=%d",
+        disableReadReceipts, disableReadReceipts]);
+    if (!disableReadReceipts) _LSSendMessageReadReceipt();
+}
+
+// Recorded only. If the receipt still reaches the other side with the two above
+// blocked, this is where it went.
+void (* _MCQTamClientThreadMarkRead)();
+void MCQTamClientThreadMarkRead() {
+    SNDiagnosticsRecordFeatureHit(@"disableReadReceipts", nil, [NSString stringWithFormat:
+        @"enabled=%d transport=MCQTamClient blocked=0", disableReadReceipts]);
+    _MCQTamClientThreadMarkRead();
 }
 
 // v458.0.0
@@ -822,56 +874,6 @@ static BOOL hideTabBar = NO;
 
 %end
 
-#pragma mark - Save friends' stories
-
-%hook LSStoryOverlayProfileView
-
-- (void)_handleOverflowMenuButton:(UIButton *)button {
-    // Both ivars were read before the feature was consulted, so opening the
-    // story menu went through them whether or not the setting was on, and a
-    // renamed ivar took the app down on a button that should have done
-    // nothing. Nothing is read until the feature asks, and the ivars are
-    // confirmed to exist on this build before they are touched.
-    BOOL hasActions = class_getInstanceVariable([self class], "_overflowActions") != NULL;
-    BOOL hasAuthor = class_getInstanceVariable([self class], "_storyAuthorId") != NULL;
-    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:
-        @"enabled=%d overflowActionsIvar=%d storyAuthorIdIvar=%d",
-        canSaveFriendsStories, hasActions, hasAuthor]);
-
-    if (!canSaveFriendsStories || !hasActions || !hasAuthor) {
-        %orig;
-        return;
-    }
-
-    NSMutableArray *actions = [MSHookIvar<NSArray *>(self, "_overflowActions") mutableCopy];
-    NSString *storyAuthorId = MSHookIvar<NSString *>(self, "_storyAuthorId");
-    SNDiagnosticsRecordFeatureHit(@"canSaveFriendsStories", self, [NSString stringWithFormat:
-        @"enabled=1 actionCount=%lu expected=3", (unsigned long)actions.count]);
-    if (![storyAuthorId isEqual:[[%c(FBAnalytics) sharedAnalytics] userFBID]] && [actions count] == 3) {
-        actionTypeSaveClass = MSGModelDefineClass(&actionTypeSaveInfo);
-        MSGStoryViewerOverflowMenuActionTypeSave *actionTypeSave = nil;
-        MSGStoryOverlayProfileViewActionStandard *actionStandard = nil;
-
-        if (SNTraits().usesADTInfoInitialiser) {
-            actionTypeSave = [actionTypeSaveClass newADTModelWithInfo:&actionTypeSaveInfo adtInfo:&actionTypeSaveADTInfo];
-            actionStandard = [actionStandardClass newADTModelWithInfo:&actionStandardInfo adtInfo:&actionStandardADTInfo];
-        } else {
-            actionTypeSave = [actionTypeSaveClass newADTModelWithInfo:&actionTypeSaveInfo adtValueSubtype:actionTypeSaveADTInfo.subtype];
-            actionStandard = [actionStandardClass newADTModelWithInfo:&actionStandardInfo adtValueSubtype:actionStandardADTInfo.subtype];
-        }
-
-        [actionStandard setValueForField:@"type", actionTypeSave];
-        [actions insertObject:actionStandard atIndex:2];
-        [self setValue:actions forKey:@"_overflowActions"];
-    }
-
-    %orig;
-}
-
-%end
-
-// Diagnostic build only: record distinct navigation routes in Messenger. The
-// recorder is bounded and only writes after a new route is observed.
 %hook UIViewController
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -893,7 +895,9 @@ static BOOL hideTabBar = NO;
             {"LSRTCValidateCallIntentForKey", (void *)LSRTCValidateCallIntentForKey, (void **)&_LSRTCValidateCallIntentForKey},
             {"MDSColorTypeMdsColorCreate", NULL, (void **)&_MDSColorTypeMdsColorCreate},
             {"MDSGeneratedImageIconStyleNormalCreate", NULL, (void **)&_MDSGeneratedImageIconStyleNormalCreate},
-            {"MDSGeneratedImageSpecIconCreate", NULL, (void **)&_MDSGeneratedImageSpecIconCreate}
+            {"MDSGeneratedImageSpecIconCreate", NULL, (void **)&_MDSGeneratedImageSpecIconCreate},
+            // The scan found this one in LightSpeedCore, not the engine.
+            {"LSSendMessageReadReceipt", (void *)LSSendMessageReadReceipt, (void **)&_LSSendMessageReadReceipt}
         }}
     });
 
@@ -901,7 +905,8 @@ static BOOL hideTabBar = NO;
         SNHookFunctions({
             {"LightSpeedEngine", {
                 {"MSGModelDefineClass", (void *)MSGModelDefineClass, (void **)&_MSGModelDefineClass},
-                {"MCQSHIMTransportHybridThreadMarkThreadRead", (void *)MCQSHIMTransportHybridThreadMarkThreadRead, (void **)&_MCQSHIMTransportHybridThreadMarkThreadRead},
+                {"MCQTamTransportThreadMarkRead", (void *)MCQTamTransportThreadMarkRead, (void **)&_MCQTamTransportThreadMarkRead},
+                {"MCQTamClientThreadMarkRead", (void *)MCQTamClientThreadMarkRead, (void **)&_MCQTamClientThreadMarkRead},
                 {"MCQTamClientTypingIndicatorStart", (void *)MCQTamClientTypingIndicatorStart, (void **)&_MCQTamClientTypingIndicatorStart},
                 {"MSGAVFoundationEstimateMaxVideoDurationInputCreate", (void *)MSGAVFoundationEstimateMaxVideoDurationInputCreate, (void **)&_MSGAVFoundationEstimateMaxVideoDurationInputCreate}
             }}

@@ -172,20 +172,6 @@
 			<key>cell</key>
 			<string>PSSwitchCell</string>
 			<key>default</key>
-			<true/>
-			<key>defaults</key>
-			<string>com.nguyenasang.snmessenger</string>
-			<key>key</key>
-			<string>canSaveFriendsStories</string>
-			<key>label</key>
-			<string>Allow saving friends' stories</string>
-		</dict>
-		<dict>
-			<key>PostNotification</key>
-			<string>SNMessenger/prefChanged</string>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
 			<false/>
 			<key>defaults</key>
 			<string>com.nguyenasang.snmessenger</string>

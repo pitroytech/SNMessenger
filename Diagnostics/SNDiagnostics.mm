@@ -98,7 +98,6 @@ static NSArray<NSString *> *SNHookInventory(void) {
         @"MSGInboxAdsUserScopedPlugin|MSGInboxAdsUnitFetcher_MSGFetchInboxUnit:",
         @"MSGThreadListDataSource|inboxRows",
         @"LSStoryViewerContentController|_updateStoriesWithBucketStoryModels:deletedIndexPaths:addedIndexPaths:newIndexPath:",
-        @"LSStoryOverlayProfileView|_handleOverflowMenuButton:",
     ];
 }
 
@@ -114,7 +113,6 @@ static NSDictionary<NSString *, id> *SNDefaultSettings(void) {
         @"hideTypingIndicator": @"NOWHERE",
         @"hideNotifBadgesInChat": @NO,
         @"keyboardStateAfterEnterChat": @"ADAPTIVE",
-        @"canSaveFriendsStories": @YES,
         @"disableStoriesPreview": @NO,
         @"disableStorySeenReceipts": @YES,
         @"extendStoryVideoUploadLength": @YES,
